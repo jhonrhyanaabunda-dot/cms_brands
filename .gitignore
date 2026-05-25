@@ -23,9 +23,11 @@ pnpm-debug.log*
 .env*.local
 .env
 
-# prisma — never commit local SQLite (use Postgres/Neon/Turso for Vercel)
+# prisma — keep migrations clean. Demo SQLite (prisma/dev.db) IS committed
+# on purpose: it ships pre-seeded with sample data so Vercel/serverless can
+# copy it to /tmp at runtime (see src/lib/db.ts). For real production, swap
+# the provider to postgresql and remove the bundled file.
 prisma/migrations/dev.db*
-prisma/dev.db
 prisma/dev.db-journal
 
 # typescript
