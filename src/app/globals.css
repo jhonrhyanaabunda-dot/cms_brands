@@ -1,0 +1,154 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* A3 — Light mode (white surfaces, charcoal text, emerald action) */
+  :root {
+    --background: 0 0% 100%;            /* #FFFFFF */
+    --foreground: 218 12% 20%;          /* #2C3038 charcoal */
+    --card: 0 0% 100%;
+    --card-foreground: 218 12% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 218 12% 20%;
+
+    /* Primary = A3 Emerald */
+    --primary: 142 75% 42%;             /* #1DB954 */
+    --primary-foreground: 218 12% 20%;  /* charcoal text on emerald */
+
+    --secondary: 210 17% 98%;           /* #F8F9FA wash */
+    --secondary-foreground: 218 12% 20%;
+    --muted: 220 13% 94%;               /* #F0F1F3 */
+    --muted-foreground: 218 9% 40%;     /* #5A6170 stone */
+    --accent: 142 75% 95%;              /* faint emerald wash */
+    --accent-foreground: 142 75% 25%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 220 13% 91%;              /* #E5E7EB */
+    --input: 220 13% 91%;
+    --ring: 142 75% 42%;                /* emerald focus */
+    --radius: 1rem;                      /* 16px — A3 card radius */
+  }
+
+  /* A3 — Dark mode (charcoal base) */
+  .dark {
+    --background: 220 14% 6%;           /* #0B0D0F dark navy */
+    --foreground: 0 0% 98%;
+    --card: 218 14% 10%;                /* slightly raised */
+    --card-foreground: 0 0% 98%;
+    --popover: 218 14% 9%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 142 75% 45%;             /* emerald — slightly brighter on dark */
+    --primary-foreground: 218 12% 14%;
+
+    --secondary: 218 12% 14%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 218 12% 12%;
+    --muted-foreground: 218 9% 65%;
+    --accent: 142 75% 18%;
+    --accent-foreground: 142 75% 80%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 218 12% 18%;
+    --input: 218 12% 18%;
+    --ring: 142 75% 50%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    font-variant-ligatures: common-ligatures;
+  }
+
+  /* A3 typographic hierarchy — Sora 900 for display */
+  h1, .h1 {
+    @apply font-display text-foreground;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+  }
+  h2, .h2 {
+    @apply font-display text-foreground;
+    font-weight: 900;
+    letter-spacing: 0.015em;
+  }
+  h3, .h3 {
+    @apply font-display text-foreground;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+
+  ::selection {
+    background-color: rgba(29,185,84,0.25);
+    color: inherit;
+  }
+}
+
+@layer components {
+  /* Standard card surface (A3: 16px radius, flat by default) */
+  .card-surface {
+    @apply rounded-lg border bg-card text-card-foreground;
+  }
+
+  /* Emerald-on-dark gradient text */
+  .gradient-text {
+    @apply bg-gradient-to-br from-brand-300 via-brand-500 to-brand-700 bg-clip-text text-transparent;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* A3 navigation glass */
+  .glass {
+    background-color: rgba(11, 13, 15, 0.78);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  /* A3 H1 utility */
+  .a3-display {
+    font-weight: 900;
+    font-size: clamp(2.25rem, 5.5vw, 3.1875rem); /* up to 51px */
+    line-height: 1.1;
+    letter-spacing: 0.02em;
+  }
+  .a3-h2 {
+    font-weight: 900;
+    font-size: clamp(1.75rem, 3.5vw, 2.1875rem); /* up to 35px */
+    line-height: 1.12;
+    letter-spacing: 0.015em;
+  }
+
+  /* All-caps A3 label */
+  .a3-label {
+    @apply uppercase;
+    font-weight: 700;
+    font-size: 10px;
+    line-height: 14px;
+    letter-spacing: 0.05em;
+  }
+
+  /* CTA pill button (utility — same vis as Button variant="cta") */
+  .a3-cta {
+    @apply inline-flex items-center justify-center gap-2 rounded-pill px-6 font-semibold transition-all;
+    background-color: #1DB954;
+    color: #2C3038;
+    height: 48px;
+    font-size: 14px;
+    line-height: 21px;
+    letter-spacing: 0.015em;
+    box-shadow: rgba(29,185,84,0.30) 0px 4px 24px 0px;
+  }
+  .a3-cta:hover  { opacity: .9; box-shadow: rgba(29,185,84,0.40) 0px 6px 28px 0px; }
+  .a3-cta:active { opacity: .75; box-shadow: rgba(29,185,84,0.25) 0px 2px 12px 0px; }
+}
+
+/* Scrollbar — subtle, A3-themed */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { @apply rounded-pill bg-border; }
+::-webkit-scrollbar-thumb:hover { background: rgba(29,185,84,0.35); }

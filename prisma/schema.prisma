@@ -1,0 +1,455 @@
+// A3 CMS — multi-tenant dealership CMS
+// Generator + datasource
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// NOTE: This schema runs on SQLite (local dev / demo).
+// For production Postgres: change provider to "postgresql",
+// then optionally restore Decimal()/Text/String[] for richer types.
+// All app code parses JSON-encoded arrays via lib/utils helpers so
+// you don't need code changes when migrating.
+// ─────────────────────────────────────────────────────────────
+
+// Enums (SQLite has no enums — Prisma emulates with CHECK constraints
+// when the provider is postgresql; on sqlite enums become String).
+
+// To keep the TypeScript surface identical across DBs we still declare
+// them as enums; Prisma will store as TEXT in SQLite.
+
+// ─────────────────────────────────────────────────────────────
+// Auth + tenancy
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String?
+  image         String?
+  passwordHash  String?
+  emailVerified DateTime?
+  isSuperAdmin  Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  memberships   Membership[]
+  authoredContent Content[]    @relation("ContentAuthor")
+  comments      Comment[]
+  activities    Activity[]
+  reviewReplies ReviewReply[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Dealership = a tenant. Role / status / brand stored as TEXT.
+model Dealership {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  legalName   String?
+  brand       String?  // OemBrand: BMW | MERCEDES_BENZ | NISSAN | FORD | LINCOLN | TOYOTA | HONDA | OTHER
+  logoUrl     String?
+  primaryColor String? @default("#1d3187")
+  domain      String?
+  city        String?
+  state       String?
+  zip         String?
+  phone       String?
+  email       String?
+  timezone    String   @default("America/New_York")
+  status      String   @default("ACTIVE") // ACTIVE | PAUSED | ARCHIVED
+  gscSiteUrl  String?
+  ga4PropertyId String?
+  gbpAccountId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memberships     Membership[]
+  contents        Content[]
+  mediaFolders    MediaFolder[]
+  mediaAssets     MediaAsset[]
+  redirects       Redirect[]
+  reviews         Review[]
+  offers          Offer[]
+  inventoryItems  InventoryItem[]
+  activities      Activity[]
+  themes          Theme[]
+  pages           PageNode[]
+}
+
+model Membership {
+  id           String   @id @default(cuid())
+  userId       String
+  dealershipId String
+  role         String   @default("VIEWER") // SUPER_ADMIN | ADMIN | SEO_MANAGER | CONTENT_MANAGER | DEALER_CLIENT | VIEWER
+  createdAt    DateTime @default(now())
+
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dealership   Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dealershipId])
+  @@index([dealershipId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Content (CMS core)
+// ─────────────────────────────────────────────────────────────
+
+model Content {
+  id            String         @id @default(cuid())
+  dealershipId  String
+  // ContentType stored as TEXT:
+  // BLOG | LANDING_PAGE | DEALER_PAGE | OEM_PAGE | CITY_PAGE | FAQ | GBP_POST | OFFER
+  // INVENTORY_CAMPAIGN | SERVICE_CAMPAIGN | MODEL_RESEARCH | COMPARE_PAGE | TRADE_IN_PAGE | FINANCE_PAGE | SERVICE_PAGE
+  type          String
+  title         String
+  slug          String
+  excerpt       String?
+  // Page builder blocks (JSON-encoded string on sqlite)
+  blocks        String         @default("[]")
+  bodyHtml      String?
+  bodyMarkdown  String?
+  metaTitle        String?
+  metaDescription  String?
+  canonicalUrl     String?
+  ogImageUrl       String?
+  // JSON-encoded array of strings: ["dealer", "service", ...]
+  keywords         String       @default("[]")
+  schemaJson       String?      // JSON-encoded object
+  seoScore         Int          @default(0)
+  noindex          Boolean      @default(false)
+  // Workflow status:
+  // DRAFT | IN_REVIEW | NEEDS_REVISION | APPROVED | SCHEDULED | PUBLISHED | ARCHIVED
+  status        String         @default("DRAFT")
+  publishedAt   DateTime?
+  scheduledAt   DateTime?
+  expiresAt     DateTime?
+  authorId      String?
+  aiGenerated   Boolean        @default(false)
+  aiModel       String?
+  aiPromptId    String?
+  qaScore       Int?
+  hallucinationFlags String?    // JSON-encoded
+  targetCity    String?
+  targetState   String?
+  targetKeyword String?
+  heroImageUrl  String?
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  dealership    Dealership     @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  author        User?          @relation("ContentAuthor", fields: [authorId], references: [id])
+  revisions     Revision[]
+  comments      Comment[]
+
+  @@unique([dealershipId, slug])
+  @@index([dealershipId, type, status])
+  @@index([status, scheduledAt])
+}
+
+model Revision {
+  id         String   @id @default(cuid())
+  contentId  String
+  snapshot   String   // JSON-encoded
+  message    String?
+  createdAt  DateTime @default(now())
+  createdBy  String?
+
+  content    Content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@index([contentId, createdAt])
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  contentId  String
+  userId     String
+  body       String
+  resolved   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  content    Content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([contentId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Page builder
+// ─────────────────────────────────────────────────────────────
+
+model PageNode {
+  id           String   @id @default(cuid())
+  dealershipId String
+  parentId     String?
+  path         String
+  title        String
+  blocks       String   @default("[]") // JSON-encoded
+  published    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  dealership   Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  parent       PageNode?  @relation("PageNodeChildren", fields: [parentId], references: [id])
+  children     PageNode[] @relation("PageNodeChildren")
+
+  @@unique([dealershipId, path])
+  @@index([dealershipId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Media
+// ─────────────────────────────────────────────────────────────
+
+model MediaFolder {
+  id           String   @id @default(cuid())
+  dealershipId String
+  name         String
+  parentId     String?
+  createdAt    DateTime @default(now())
+
+  dealership   Dealership   @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  parent       MediaFolder? @relation("FolderTree", fields: [parentId], references: [id])
+  children     MediaFolder[] @relation("FolderTree")
+  assets       MediaAsset[]
+
+  @@index([dealershipId])
+}
+
+model MediaAsset {
+  id           String   @id @default(cuid())
+  dealershipId String
+  folderId     String?
+  url          String
+  cdnUrl       String?
+  webpUrl      String?
+  filename     String
+  mimeType     String
+  size         Int
+  width        Int?
+  height       Int?
+  alt          String?
+  aiTags       String   @default("[]") // JSON-encoded array
+  uploadedBy   String?
+  createdAt    DateTime @default(now())
+
+  dealership   Dealership   @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  folder       MediaFolder? @relation(fields: [folderId], references: [id])
+
+  @@index([dealershipId, folderId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// SEO / Redirects
+// ─────────────────────────────────────────────────────────────
+
+model Redirect {
+  id           String   @id @default(cuid())
+  dealershipId String
+  from         String
+  to           String
+  statusCode   Int      @default(301)
+  createdAt    DateTime @default(now())
+
+  dealership   Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+
+  @@unique([dealershipId, from])
+  @@index([dealershipId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Reviews + Reply Center
+// ─────────────────────────────────────────────────────────────
+
+model Review {
+  id            String          @id @default(cuid())
+  dealershipId  String
+  externalId    String
+  authorName    String
+  rating        Int
+  body          String
+  // ReviewSentiment: POSITIVE | NEUTRAL | NEGATIVE
+  sentiment     String          @default("NEUTRAL")
+  language      String?         @default("en")
+  isEscalated   Boolean         @default(false)
+  publishedAt   DateTime
+  createdAt     DateTime        @default(now())
+
+  dealership    Dealership      @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  replies       ReviewReply[]
+
+  @@unique([dealershipId, externalId])
+  @@index([dealershipId, sentiment])
+}
+
+model ReviewReply {
+  id         String      @id @default(cuid())
+  reviewId   String
+  body       String
+  // ReplyStatus: DRAFT | APPROVED | POSTED | REJECTED
+  status     String      @default("DRAFT")
+  aiGenerated Boolean    @default(true)
+  authorId   String?
+  postedAt   DateTime?
+  createdAt  DateTime    @default(now())
+
+  review     Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  author     User?  @relation(fields: [authorId], references: [id])
+
+  @@index([reviewId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Offers + Inventory
+// ─────────────────────────────────────────────────────────────
+
+model Offer {
+  id           String   @id @default(cuid())
+  dealershipId String
+  headline     String
+  subheadline  String?
+  detail       String?
+  ctaLabel     String?
+  ctaUrl       String?
+  imageUrl     String?
+  startsAt     DateTime?
+  expiresAt    DateTime?
+  oemBrand     String?
+  model        String?
+  monthlyPayment Float?
+  apr          Float?
+  termMonths   Int?
+  disclaimer   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  dealership   Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+
+  @@index([dealershipId])
+}
+
+model InventoryItem {
+  id           String   @id @default(cuid())
+  dealershipId String
+  vin          String
+  year         Int
+  make         String
+  model        String
+  trim         String?
+  bodyStyle    String?
+  exteriorColor String?
+  interiorColor String?
+  mileage      Int?
+  price        Float?
+  msrp         Float?
+  stockNumber  String?
+  fuelType     String?
+  transmission String?
+  drivetrain   String?
+  imageUrl     String?
+  status       String   @default("AVAILABLE")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  dealership   Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+
+  @@unique([dealershipId, vin])
+  @@index([dealershipId, make, model])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Themes
+// ─────────────────────────────────────────────────────────────
+
+model Theme {
+  id           String   @id @default(cuid())
+  dealershipId String
+  name         String
+  config       String   // JSON-encoded design tokens
+  isActive     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  dealership   Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+
+  @@index([dealershipId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Activity log
+// ─────────────────────────────────────────────────────────────
+
+model Activity {
+  id           String   @id @default(cuid())
+  dealershipId String?
+  userId       String?
+  action       String
+  target       String?
+  meta         String?  // JSON-encoded
+  createdAt    DateTime @default(now())
+
+  dealership   Dealership? @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  user         User?       @relation(fields: [userId], references: [id])
+
+  @@index([dealershipId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// AI prompt history
+// ─────────────────────────────────────────────────────────────
+
+model AiGeneration {
+  id           String   @id @default(cuid())
+  dealershipId String?
+  userId       String?
+  kind         String
+  model        String
+  prompt       String
+  response     String
+  tokensIn     Int?
+  tokensOut    Int?
+  costUsd      Float?
+  createdAt    DateTime @default(now())
+
+  @@index([dealershipId, kind, createdAt])
+}
