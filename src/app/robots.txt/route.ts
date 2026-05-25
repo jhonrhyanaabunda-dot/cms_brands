@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 
+// Skip build-time prerendering — this hits Prisma and needs the runtime DB
+// (which instrumentation.ts copies to /tmp on serverless cold start).
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const dealers = await prisma.dealership.findMany({ where: { status: "ACTIVE" } });
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
