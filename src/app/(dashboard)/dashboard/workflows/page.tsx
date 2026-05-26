@@ -3,7 +3,7 @@ import { Workflow as WorkflowIcon } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { listWorkflows } from "@/server/workflows";
-import { WorkflowsClient } from "./workflows-client";
+import { NewButton as WorkflowsNewButton, List as WorkflowsList } from "./workflows-client";
 
 export const metadata = { title: "Workflows" };
 
@@ -17,7 +17,7 @@ export default async function WorkflowsPage() {
         icon={WorkflowIcon}
         title="Workflows"
         description={`${items.length} workflow${items.length === 1 ? "" : "s"} · automate content, reviews, scheduling.`}
-        actions={<WorkflowsClient.NewButton />}
+        actions={<WorkflowsNewButton />}
       />
 
       {items.length === 0 ? (
@@ -25,10 +25,10 @@ export default async function WorkflowsPage() {
           icon={WorkflowIcon}
           title="No workflows yet"
           description="Pick a template to start: weekly GBP posts, monthly city pages, auto-reply to reviews, and more."
-          action={<WorkflowsClient.NewButton />}
+          action={<WorkflowsNewButton />}
         />
       ) : (
-        <WorkflowsClient.List initial={items.map((w) => ({
+        <WorkflowsList initial={items.map((w) => ({
           id: w.id,
           name: w.name,
           template: w.template,

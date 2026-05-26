@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { PROVIDER, MODEL } from "@/lib/openai";
 
 export const metadata = { title: "Settings" };
 
@@ -16,7 +17,19 @@ export default async function SettingsPage() {
     { name: "Google Search Console", connected: !!d.gscSiteUrl, value: d.gscSiteUrl ?? "Not connected" },
     { name: "Google Analytics 4", connected: !!d.ga4PropertyId, value: d.ga4PropertyId ?? "Not connected" },
     { name: "Google Business Profile", connected: !!d.gbpAccountId, value: d.gbpAccountId ?? "Not connected" },
-    { name: "OpenAI", connected: !!process.env.OPENAI_API_KEY, value: process.env.OPENAI_API_KEY ? "Connected" : "Not connected (running in demo mode)" },
+    {
+      name: "Gemini (Google AI)",
+      connected: PROVIDER === "gemini",
+      value: PROVIDER === "gemini" ? `Active · ${MODEL}` : "Not connected (set GOOGLE_GENERATIVE_AI_API_KEY)",
+    },
+    {
+      name: "OpenAI",
+      connected: PROVIDER === "openai",
+      value:
+        PROVIDER === "openai" ? `Active · ${MODEL}` :
+        PROVIDER === "gemini" ? "Available · using Gemini instead" :
+        "Not connected (running in demo mode)",
+    },
   ];
 
   return (

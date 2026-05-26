@@ -1,16 +1,42 @@
 import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const apiKey = process.env.OPENAI_API_KEY;
-export const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+// ─── Provider selection ───────────────────────────────────────────────────
+// Preference order: Gemini (free tier) → OpenAI (paid) → deterministic mocks.
+// First key found wins, so users can flip providers by setting one env var.
 
-export const openai = apiKey ? new OpenAI({ apiKey }) : null;
+const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+const openaiKey = process.env.OPENAI_API_KEY;
 
-export const hasOpenAi = !!apiKey;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+const OPENAI_MODEL_NAME = process.env.OPENAI_MODEL || "gpt-4o-mini";
+
+const gemini = geminiKey ? new GoogleGenerativeAI(geminiKey) : null;
+const openai = openaiKey ? new OpenAI({ apiKey: openaiKey }) : null;
+
+// Active provider — drives both the integration-status display and the
+// `model` column we log against each AiGeneration row.
+export const PROVIDER: "gemini" | "openai" | "mock" =
+  gemini ? "gemini" : openai ? "openai" : "mock";
+
+// Public model identifier — used by server actions when writing
+// AiGeneration.model so cost/usage reports show which model produced what.
+export const MODEL =
+  PROVIDER === "gemini" ? GEMINI_MODEL :
+  PROVIDER === "openai" ? OPENAI_MODEL_NAME :
+  "mock";
+
+export const hasGemini = PROVIDER === "gemini";
+export const hasOpenAi = PROVIDER === "openai";
+export const hasRealAi = PROVIDER !== "mock";
 
 /**
- * Wrapper around chat.completions with sensible defaults.
- * Falls back to an input-aware deterministic mock when no API key is configured —
- * lets the app run end-to-end in demo mode without an OpenAI key.
+ * Provider-agnostic chat wrapper. Routes to whichever real API is
+ * configured, falling back to input-aware deterministic mocks when neither
+ * is — lets the app run end-to-end in demo mode without any AI keys.
+ *
+ * `json: true` requests strict JSON output. Both Gemini and OpenAI support
+ * this natively; the mock checks the same flag.
  */
 export async function chat({
   system,
@@ -23,24 +49,50 @@ export async function chat({
   json?: boolean;
   temperature?: number;
 }): Promise<{ text: string; tokensIn?: number; tokensOut?: number }> {
-  if (!openai) {
-    return { text: mockResponse({ system, user, json }) };
+  if (gemini) {
+    try {
+      const model = gemini.getGenerativeModel({
+        model: GEMINI_MODEL,
+        systemInstruction: system,
+        generationConfig: {
+          temperature,
+          responseMimeType: json ? "application/json" : "text/plain",
+        },
+      });
+      const res = await model.generateContent(user);
+      const text = res.response.text() ?? "";
+      const usage = res.response.usageMetadata;
+      return {
+        text,
+        tokensIn:  usage?.promptTokenCount,
+        tokensOut: usage?.candidatesTokenCount,
+      };
+    } catch (e) {
+      // Hard-fail surfaces in the caller's toast / activity log; falling
+      // through to mocks would silently mask broken keys / quota errors.
+      throw e;
+    }
   }
-  const res = await openai.chat.completions.create({
-    model: MODEL,
-    temperature,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
-    response_format: json ? { type: "json_object" } : undefined,
-  });
-  const text = res.choices[0]?.message?.content ?? "";
-  return {
-    text,
-    tokensIn: res.usage?.prompt_tokens,
-    tokensOut: res.usage?.completion_tokens,
-  };
+
+  if (openai) {
+    const res = await openai.chat.completions.create({
+      model: OPENAI_MODEL_NAME,
+      temperature,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      response_format: json ? { type: "json_object" } : undefined,
+    });
+    const text = res.choices[0]?.message?.content ?? "";
+    return {
+      text,
+      tokensIn: res.usage?.prompt_tokens,
+      tokensOut: res.usage?.completion_tokens,
+    };
+  }
+
+  return { text: mockResponse({ system, user, json }) };
 }
 
 // --- Input-aware deterministic mocks --------------------------------------

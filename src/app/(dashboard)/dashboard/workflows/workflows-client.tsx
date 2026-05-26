@@ -69,9 +69,14 @@ export type WorkflowDTO = {
 
 // ─────────────────────────────────────────────────────────────
 // Top-level new-workflow button (reusable from page header + empty state)
+//
+// NOTE: every component below is a *top-level named export*. Don't wrap
+// them in a namespace object — across the RSC boundary, server components
+// can only render client components that are named exports of a "use client"
+// file. A wrapper object resolves to `undefined` and throws React #130.
 // ─────────────────────────────────────────────────────────────
 
-function NewButton() {
+export function NewButton() {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -87,7 +92,7 @@ function NewButton() {
 // List
 // ─────────────────────────────────────────────────────────────
 
-function List({ initial, role }: { initial: WorkflowDTO[]; role: Role }) {
+export function List({ initial, role }: { initial: WorkflowDTO[]; role: Role }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [historyId, setHistoryId] = useState<string | null>(null);
@@ -813,11 +818,3 @@ function ConfigEditor({ template, config, setConfig }: { template: TemplateId; c
   return null;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Export
-// ─────────────────────────────────────────────────────────────
-
-export const WorkflowsClient = {
-  NewButton,
-  List,
-};
