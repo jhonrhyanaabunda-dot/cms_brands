@@ -4,5 +4,11 @@
     "env": {
       "DATABASE_URL": "file:./dev.db"
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/workflows",
+      "schedule": "*/15 * * * *"
+    }
+  ]
 }

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Calendar } from "lucide-react";
 import { format, isSameDay, addDays, startOfWeek } from "date-fns";
 import { RunSchedulerNow } from "./run-now";
+import { PageHeader } from "@/components/dashboard/page-header";
 
 export const metadata = { title: "Scheduler" };
 
@@ -21,13 +22,12 @@ export default async function SchedulerPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2"><Calendar className="h-5 w-5" /> Scheduler</h1>
-          <p className="text-sm text-muted-foreground">Auto-publish, expire, and recur — visual editorial calendar.</p>
-        </div>
-        <RunSchedulerNow />
-      </div>
+      <PageHeader
+        icon={Calendar}
+        title="Scheduler"
+        description={`${items.length} item${items.length === 1 ? "" : "s"} scheduled · auto-publish, expire, recur.`}
+        actions={<RunSchedulerNow />}
+      />
 
       <Card>
         <CardHeader><CardTitle className="text-base">Upcoming 14 days</CardTitle></CardHeader>

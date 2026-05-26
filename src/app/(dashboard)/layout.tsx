@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { getTenant } from "@/lib/tenant";
 import { prisma } from "@/lib/db";
-import { Sidebar } from "@/components/dashboard/sidebar";
+import { Sidebar, type SidebarCounts } from "@/components/dashboard/sidebar";
 import { Topbar } from "@/components/dashboard/topbar";
+import { CommandPaletteRoot } from "@/components/dashboard/command-palette";
 import { tenantAccent } from "@/lib/branding";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -20,12 +21,36 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const current = dealerships.find((d) => d.id === tenant.dealershipId) ?? dealerships[0];
   const accent = tenantAccent({ brand: current?.brand, primaryColor: current?.primaryColor });
 
+  // Sidebar status-count badges. Best-effort; counts that fail individually
+  // collapse to undefined and just hide the badge.
+  const dId = tenant.dealershipId;
+  const [contentTotal, scheduledTotal, reviewsPending, gbpTotal, inventoryTotal, offersTotal, mediaTotal, workflowsEnabled] = await Promise.all([
+    prisma.content.count({ where: { dealershipId: dId, status: { in: ["DRAFT", "IN_REVIEW", "NEEDS_REVISION", "APPROVED"] } } }).catch(() => undefined),
+    prisma.content.count({ where: { dealershipId: dId, scheduledAt: { not: null }, status: { in: ["SCHEDULED", "APPROVED"] } } }).catch(() => undefined),
+    prisma.review.count({ where: { dealershipId: dId, isEscalated: true, replies: { none: { status: "POSTED" } } } }).catch(() => undefined),
+    prisma.content.count({ where: { dealershipId: dId, type: "GBP_POST", status: { in: ["DRAFT", "IN_REVIEW", "SCHEDULED"] } } }).catch(() => undefined),
+    prisma.inventoryItem.count({ where: { dealershipId: dId } }).catch(() => undefined),
+    prisma.offer.count({ where: { dealershipId: dId } }).catch(() => undefined),
+    prisma.mediaAsset.count({ where: { dealershipId: dId } }).catch(() => undefined),
+    prisma.workflow.count({ where: { dealershipId: dId, enabled: true } }).catch(() => undefined),
+  ]);
+  const counts: SidebarCounts = {
+    content: contentTotal,
+    scheduler: scheduledTotal,
+    reviews: reviewsPending,
+    gbp: gbpTotal,
+    inventory: inventoryTotal,
+    offers: offersTotal,
+    media: mediaTotal,
+    workflows: workflowsEnabled,
+  };
+
   return (
     <div
       className="h-screen flex bg-muted/30"
       style={{ ["--tenant-color" as any]: accent }}
     >
-      <Sidebar role={tenant.role} accent={accent} />
+      <Sidebar role={tenant.role} accent={accent} counts={counts} />
       <div className="flex-1 flex flex-col min-w-0">
         <div className="h-[3px] w-full" style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }} />
         <Topbar
@@ -38,6 +63,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <div className="container py-6 max-w-screen-2xl">{children}</div>
         </main>
       </div>
+      <CommandPaletteRoot />
     </div>
   );
 }

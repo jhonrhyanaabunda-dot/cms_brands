@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ReviewsList } from "./reviews-list";
 import { Star } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { EmptyState } from "@/components/dashboard/empty-state";
 
 export const metadata = { title: "Reviews" };
 
@@ -23,10 +25,11 @@ export default async function ReviewsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2"><Star className="h-5 w-5" /> Review center</h1>
-        <p className="text-sm text-muted-foreground">Sync, draft AI replies, approve, and post — all in one place.</p>
-      </div>
+      <PageHeader
+        icon={Star}
+        title="Review center"
+        description={`${reviews.length} review${reviews.length === 1 ? "" : "s"} synced · draft AI replies, approve, and post.`}
+      />
 
       <div className="grid sm:grid-cols-4 gap-3">
         <Stat label="Avg rating" value={String(avg)} tone="success" />
@@ -35,7 +38,15 @@ export default async function ReviewsPage() {
         <Stat label="Needs reply" value={`${escalated}`} tone="warning" />
       </div>
 
-      <ReviewsList reviews={reviews as any} />
+      {reviews.length === 0 ? (
+        <EmptyState
+          icon={Star}
+          title="No reviews yet"
+          description="Once GBP is connected we'll sync reviews here and let you draft AI replies."
+        />
+      ) : (
+        <ReviewsList reviews={reviews as any} />
+      )}
     </div>
   );
 }

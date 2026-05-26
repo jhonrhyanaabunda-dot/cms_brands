@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { MediaUploader } from "./media-uploader";
 import { Image as ImageIcon } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { EmptyState } from "@/components/dashboard/empty-state";
 
 export const metadata = { title: "Media library" };
 
@@ -17,18 +19,21 @@ export default async function MediaPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2"><ImageIcon className="h-5 w-5" /> Media library</h1>
-          <p className="text-sm text-muted-foreground">{formatNumber(assets.length)} assets · {folders.length} folders · AI-tagged + CDN-optimized.</p>
-        </div>
-        <MediaUploader />
-      </div>
+      <PageHeader
+        icon={ImageIcon}
+        title="Media library"
+        description={`${formatNumber(assets.length)} assets · ${folders.length} folders · AI-tagged + CDN-optimized.`}
+        actions={<MediaUploader />}
+      />
 
+      {assets.length === 0 ? (
+        <EmptyState
+          icon={ImageIcon}
+          title="No media yet"
+          description="Drop files into the uploader above. We'll auto-tag and serve them through the CDN."
+        />
+      ) : (
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        {assets.length === 0 && (
-          <Card className="col-span-full"><CardContent className="p-10 text-center text-sm text-muted-foreground">No media yet — drop files above.</CardContent></Card>
-        )}
         {assets.map((a) => (
           <Card key={a.id} className="overflow-hidden group">
             <div className="aspect-square bg-muted relative">
@@ -48,6 +53,7 @@ export default async function MediaPage() {
           </Card>
         ))}
       </div>
+      )}
     </div>
   );
 }

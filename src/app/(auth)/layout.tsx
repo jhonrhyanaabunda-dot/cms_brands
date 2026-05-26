@@ -13,9 +13,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="absolute -bottom-40 -right-32 h-[380px] w-[380px] rounded-full bg-brand-700/30 blur-[140px]" />
 
         <div className="relative">
-          <Link href="/" className="flex items-center gap-2.5 font-extrabold tracking-tight">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-brand-500 text-charcoal-500 text-sm font-black">A3</span>
-            <span className="text-xl">A3 CMS</span>
+          <Link href="/" className="inline-flex items-center">
+            <img src="/logo.png" alt="A3 Brands" className="h-12 w-auto" />
           </Link>
         </div>
 

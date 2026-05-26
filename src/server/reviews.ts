@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireTenant } from "@/lib/tenant";
 import { can } from "@/lib/rbac";
 import { generateReviewReply } from "@/server/ai";
+import { fireWorkflowEvent } from "@/server/workflows";
 
 export async function syncReviews() {
   const tenant = await requireTenant();
@@ -18,10 +19,11 @@ export async function syncReviews() {
     { authorName: "Amy K.", rating: 5, body: "Loved the new car experience — highly recommend.", sentiment: "POSITIVE" as const },
   ];
   let created = 0;
+  const createdIds: { id: string; rating: number }[] = [];
   for (let i = 0; i < samples.length; i++) {
     const s = samples[i];
     const externalId = `mock-${i}-${Date.now()}`;
-    await prisma.review.create({
+    const review = await prisma.review.create({
       data: {
         dealershipId: tenant.dealershipId,
         externalId,
@@ -34,11 +36,27 @@ export async function syncReviews() {
       },
     });
     created++;
+    createdIds.push({ id: review.id, rating: review.rating });
   }
   await prisma.activity.create({
     data: { dealershipId: tenant.dealershipId, userId: tenant.userId, action: `Synced ${created} reviews from GBP (mock)` },
   });
+  // Fire one event per new review so any matching workflow (auto-reply,
+  // auto-escalate) can react. Errors here must NOT roll back the sync —
+  // catch and log instead.
+  for (const r of createdIds) {
+    try {
+      await fireWorkflowEvent({
+        dealershipId: tenant.dealershipId,
+        eventType: "review.synced",
+        payload: { reviewId: r.id, rating: r.rating },
+      });
+    } catch (e) {
+      console.error("[workflow] review.synced fire failed:", e);
+    }
+  }
   revalidatePath("/dashboard/reviews");
+  revalidatePath("/dashboard/workflows");
   return created;
 }
 

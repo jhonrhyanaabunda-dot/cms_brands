@@ -115,6 +115,7 @@ model Dealership {
   activities      Activity[]
   themes          Theme[]
   pages           PageNode[]
+  workflows       Workflow[]
 }
 
 model Membership {
@@ -361,12 +362,13 @@ model Offer {
   apr          Float?
   termMonths   Int?
   disclaimer   String?
+  status       String   @default("ACTIVE") // ACTIVE | ARCHIVED — auto-archive workflow flips on expiry
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   dealership   Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
 
-  @@index([dealershipId])
+  @@index([dealershipId, status])
 }
 
 model InventoryItem {
@@ -452,4 +454,63 @@ model AiGeneration {
   createdAt    DateTime @default(now())
 
   @@index([dealershipId, kind, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Workflow automation (AI-driven scheduled + event-triggered jobs)
+// ─────────────────────────────────────────────────────────────
+
+model Workflow {
+  id           String   @id @default(cuid())
+  dealershipId String
+  name         String
+  // Template key: see WORKFLOW_TEMPLATES in lib/workflows-defs.ts
+  template     String
+  // "schedule" | "event"
+  triggerKind  String
+  // For schedule triggers: cron-like cadence in JSON ({ cadence: "hourly"|"daily"|"weekly"|"monthly",
+  //   dayOfWeek?: 0-6, dayOfMonth?: 1-31, hour?: 0-23, minute?: 0-59 })
+  // For event triggers: { eventType: "review.synced", filter?: { … } }
+  trigger      String   // JSON
+  // Template-specific config in JSON (topic rotation, cities list, age threshold, etc.)
+  config       String   // JSON
+  enabled      Boolean  @default(true)
+  lastRunAt    DateTime?
+  nextRunAt    DateTime?
+  lastStatus   String?   // "success" | "error" | "partial" | "skipped"
+  // Concurrency lock: set when execution starts, cleared at finish. Stale
+  // values (> 10 min) are treated as crashed and reclaimed.
+  runningSince DateTime?
+  // Idempotency: prevent re-running the same period (e.g. same ISO week).
+  lastRanKey   String?
+  // Cost / activity rollups for the workflows list card.
+  totalRuns    Int      @default(0)
+  totalTokens  Int      @default(0)
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  dealership   Dealership    @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  runs         WorkflowRun[]
+
+  @@index([dealershipId, enabled, nextRunAt])
+  @@index([triggerKind, enabled])
+}
+
+model WorkflowRun {
+  id          String   @id @default(cuid())
+  workflowId  String
+  status      String   // "running" | "success" | "error" | "partial" | "skipped"
+  startedAt   DateTime @default(now())
+  finishedAt  DateTime?
+  summary     String?  // short human-readable result (e.g. "Generated 3 city pages")
+  output      String?  // JSON with detailed output
+  error       String?
+  triggeredBy String?  // "cron" | "manual" | "event" | "dryrun"
+  tokensUsed  Int      @default(0)
+  dryRun      Boolean  @default(false)
+
+  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId, startedAt])
 }

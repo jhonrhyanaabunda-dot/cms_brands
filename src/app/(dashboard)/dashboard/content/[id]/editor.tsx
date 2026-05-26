@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -24,7 +24,9 @@ import { generateMeta, rewriteContent, aiQaCheck, suggestInternalLinks } from "@
 import { scoreSeo } from "@/lib/seo";
 import type { Role, WorkflowStatus } from "@/lib/types";
 import { can } from "@/lib/rbac";
-import { relativeTime, parseJson } from "@/lib/utils";
+import { readingTime, relativeTime, parseJson } from "@/lib/utils";
+import { useAutosave, useDirtyGuard } from "@/lib/hooks/use-autosave";
+import { SaveStatus } from "@/components/dashboard/save-status";
 
 export function ContentEditor({ initial, role }: { initial: any; role: Role }) {
   const [title, setTitle] = useState(initial.title);
@@ -48,17 +50,56 @@ export function ContentEditor({ initial, role }: { initial: any; role: Role }) {
     [title, metaTitle, metaDesc, body, slug, keywords, initial.heroImageUrl]
   );
 
+  // Editable-fields fingerprint, drives autosave.
+  const draft = useMemo(
+    () => ({ title, slug, excerpt, body, metaTitle, metaDesc, keywords, noindex, scheduledAt }),
+    [title, slug, excerpt, body, metaTitle, metaDesc, keywords, noindex, scheduledAt]
+  );
+
+  // Read-only users shouldn't trigger autosave from accidental keystrokes.
+  const canEdit = can(role, "content.update");
+
+  const autosave = useAutosave(
+    draft,
+    async (d) => {
+      await updateContent(initial.id, {
+        title: d.title, slug: d.slug, excerpt: d.excerpt, bodyMarkdown: d.body,
+        metaTitle: d.metaTitle, metaDescription: d.metaDesc,
+        keywords: d.keywords, noindex: d.noindex, scheduledAt: d.scheduledAt || null,
+      });
+    },
+    { enabled: canEdit }
+  );
+
+  useDirtyGuard(autosave.status === "dirty" || autosave.status === "saving");
+
   function save() {
+    if (!canEdit) return;
     start(async () => {
-      try {
-        await updateContent(initial.id, {
-          title, slug, excerpt, bodyMarkdown: body, metaTitle, metaDescription: metaDesc,
-          keywords, noindex, scheduledAt: scheduledAt || null,
-        });
-        toast.success("Saved");
-      } catch (e: any) { toast.error(e.message); }
+      try { await autosave.saveNow(); toast.success("Saved"); }
+      catch (e: any) { toast.error(e.message); }
     });
   }
+
+  // Keyboard shortcuts: Cmd/Ctrl+S = save, Cmd/Ctrl+Enter = submit for review
+  // (only when the doc is a draft). Ignore when focus is in textarea/input
+  // *only* for Enter; Cmd+S always wins.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      if (e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        save();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (initial.status === "DRAFT") changeStatus("IN_REVIEW");
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, initial.status, canEdit]);
 
   function changeStatus(s: WorkflowStatus, msg?: string) {
     start(async () => {
@@ -95,16 +136,37 @@ export function ContentEditor({ initial, role }: { initial: any; role: Role }) {
     catch (e: any) { toast.error(e.message, { id: t }); }
   }
 
+  const words = body.trim() ? body.trim().split(/\s+/).length : 0;
+  const minRead = readingTime(body);
+
   return (
     <div className="grid lg:grid-cols-[1fr_360px] gap-6">
       <div className="space-y-4 min-w-0">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <Button variant="ghost" asChild size="sm"><Link href="/dashboard/content"><ArrowLeft /> Back</Link></Button>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" asChild size="sm"><Link href="/dashboard/content"><ArrowLeft /> Back</Link></Button>
+            <span className="hidden md:inline-flex items-center gap-3 text-xs text-muted-foreground">
+              <span><strong className="text-foreground tabular-nums">{words}</strong> words</span>
+              <span>·</span>
+              <span><strong className="text-foreground tabular-nums">{minRead}</strong> min read</span>
+              <span>·</span>
+              <span title="Live SEO score from on-page checks">SEO <strong className={seo.score >= 80 ? "text-emerald-500" : seo.score >= 60 ? "text-amber-500" : "text-red-500"}>{seo.score}</strong></span>
+            </span>
+          </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant={initial.status === "PUBLISHED" ? "success" : "secondary"}>{initial.status.replace("_"," ").toLowerCase()}</Badge>
             {initial.aiGenerated && <Badge variant="brand"><Sparkles className="h-3 w-3 mr-1" />AI</Badge>}
+            <SaveStatus state={autosave} />
             <Button size="sm" variant="outline" onClick={() => window.open(`/preview/${initial.id}`, "_blank")}><Eye /> Preview</Button>
-            <Button size="sm" variant="gradient" disabled={pending} onClick={save}><Save /> Save</Button>
+            <Button
+              size="sm"
+              variant="gradient"
+              disabled={pending || autosave.status === "saving" || !canEdit}
+              onClick={save}
+              title="Save (⌘S)"
+            >
+              <Save /> Save
+            </Button>
           </div>
         </div>
 

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Users } from "lucide-react";
 import { ROLE_LABEL } from "@/lib/rbac";
 import type { Role } from "@/lib/types";
+import { PageHeader } from "@/components/dashboard/page-header";
 
 export const metadata = { title: "Team" };
 
@@ -18,10 +19,11 @@ export default async function TeamPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2"><Users className="h-5 w-5" /> Team</h1>
-        <p className="text-sm text-muted-foreground">{memberships.length} members in this workspace.</p>
-      </div>
+      <PageHeader
+        icon={Users}
+        title="Team"
+        description={`${memberships.length} member${memberships.length === 1 ? "" : "s"} in this workspace.`}
+      />
       <Card>
         <CardContent className="p-0">
           <div className="grid grid-cols-12 px-4 py-2 text-xs uppercase text-muted-foreground border-b">

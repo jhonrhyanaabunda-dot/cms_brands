@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/dashboard/page-header";
 
 export const metadata = { title: "Settings" };
 
@@ -20,10 +21,11 @@ export default async function SettingsPage() {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2"><Settings className="h-5 w-5" /> Workspace settings</h1>
-        <p className="text-sm text-muted-foreground">Manage dealership details and integrations.</p>
-      </div>
+      <PageHeader
+        icon={Settings}
+        title="Workspace settings"
+        description="Manage dealership details and integrations."
+      />
 
       <Card>
         <CardHeader><CardTitle className="text-base">Dealership profile</CardTitle></CardHeader>

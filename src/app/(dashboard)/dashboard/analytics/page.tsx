@@ -6,6 +6,7 @@ import { fetchGscSummary, fetchGa4Summary, fetchGbpInsights, fetchPageSpeed, bui
 import { TrafficChart } from "@/components/dashboard/traffic-chart";
 import { formatNumber } from "@/lib/utils";
 import { BarChart3 } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/page-header";
 
 export const metadata = { title: "Analytics" };
 
@@ -22,10 +23,11 @@ export default async function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2"><BarChart3 className="h-5 w-5" /> Analytics</h1>
-        <p className="text-sm text-muted-foreground">GSC + GA4 + GBP + PageSpeed in one view.</p>
-      </div>
+      <PageHeader
+        icon={BarChart3}
+        title="Analytics"
+        description="GSC + GA4 + GBP + PageSpeed in one view."
+      />
 
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
         <Stat label="Sessions (GA4)" value={formatNumber(ga4.sessions)} tone="info" />

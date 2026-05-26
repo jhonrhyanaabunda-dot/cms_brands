@@ -5,7 +5,7 @@ import { useTheme } from "next-themes";
 import { signOut, useSession } from "next-auth/react";
 import { Sun, Moon, Search, ChevronsUpDown, LogOut, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { openCommandPalette } from "@/components/dashboard/command-palette";
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
@@ -77,10 +77,16 @@ export function Topbar({
         </div>
 
         <div className="flex-1 max-w-md hidden lg:block">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input placeholder="Search content, pages, media…" className="h-8 pl-8" />
-          </div>
+          <button
+            type="button"
+            onClick={openCommandPalette}
+            className="group flex w-full items-center gap-2 h-8 rounded-md border bg-background/60 px-2.5 text-left text-xs text-muted-foreground hover:border-brand-500 hover:text-foreground transition-colors"
+            aria-label="Open command palette"
+          >
+            <Search className="h-3.5 w-3.5" />
+            <span className="flex-1">Search or jump to…</span>
+            <kbd className="hidden md:inline-flex items-center rounded border bg-muted px-1.5 py-0.5 text-[10px] tabular-nums">⌘K</kbd>
+          </button>
         </div>
 
         <div className="flex-1" />

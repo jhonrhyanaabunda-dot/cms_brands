@@ -199,6 +199,112 @@ export async function deleteContent(id: string) {
   revalidatePath("/dashboard/content");
 }
 
+export async function bulkTransitionStatus(ids: string[], status: WorkflowStatus) {
+  const tenant = await requireTenant();
+  const permNeeded = status === "PUBLISHED" ? "content.publish" : "content.update";
+  if (!can(tenant.role, permNeeded)) throw new Error("FORBIDDEN");
+  StatusEnum.parse(status);
+  if (!ids.length) return { count: 0 };
+
+  const data: any = { status };
+  if (status === "PUBLISHED") data.publishedAt = new Date();
+  const res = await prisma.content.updateMany({
+    where: { id: { in: ids }, dealershipId: tenant.dealershipId },
+    data,
+  });
+  await prisma.activity.create({
+    data: {
+      dealershipId: tenant.dealershipId,
+      userId: tenant.userId,
+      action: `Bulk ${status.toLowerCase().replace("_", " ")}: ${res.count} item${res.count === 1 ? "" : "s"}`,
+    },
+  });
+  revalidatePath("/dashboard/content");
+  return { count: res.count };
+}
+
+export async function bulkSchedule(ids: string[], when: string) {
+  const tenant = await requireTenant();
+  if (!can(tenant.role, "content.update")) throw new Error("FORBIDDEN");
+  if (!ids.length || !when) return { count: 0 };
+  const scheduledAt = new Date(when);
+  if (Number.isNaN(scheduledAt.getTime())) throw new Error("INVALID_DATE");
+  const res = await prisma.content.updateMany({
+    where: { id: { in: ids }, dealershipId: tenant.dealershipId },
+    data: { scheduledAt, status: "SCHEDULED" },
+  });
+  await prisma.activity.create({
+    data: {
+      dealershipId: tenant.dealershipId,
+      userId: tenant.userId,
+      action: `Bulk scheduled ${res.count} item${res.count === 1 ? "" : "s"} for ${scheduledAt.toLocaleString()}`,
+    },
+  });
+  revalidatePath("/dashboard/content");
+  revalidatePath("/dashboard/scheduler");
+  return { count: res.count };
+}
+
+export async function bulkDelete(ids: string[]) {
+  const tenant = await requireTenant();
+  if (!can(tenant.role, "content.delete")) throw new Error("FORBIDDEN");
+  if (!ids.length) return { count: 0 };
+  const res = await prisma.content.deleteMany({
+    where: { id: { in: ids }, dealershipId: tenant.dealershipId },
+  });
+  await prisma.activity.create({
+    data: {
+      dealershipId: tenant.dealershipId,
+      userId: tenant.userId,
+      action: `Bulk deleted ${res.count} item${res.count === 1 ? "" : "s"}`,
+    },
+  });
+  revalidatePath("/dashboard/content");
+  return { count: res.count };
+}
+
+export async function duplicateContent(id: string) {
+  const tenant = await requireTenant();
+  if (!can(tenant.role, "content.create")) throw new Error("FORBIDDEN");
+  const src = await prisma.content.findFirst({ where: { id, dealershipId: tenant.dealershipId } });
+  if (!src) throw new Error("NOT_FOUND");
+  // Unique slug per dealership: "<slug>-copy", "<slug>-copy-2", …
+  let slug = `${src.slug}-copy`;
+  let n = 1;
+  while (await prisma.content.findUnique({ where: { dealershipId_slug: { dealershipId: tenant.dealershipId, slug } } })) {
+    slug = `${src.slug}-copy-${++n}`;
+  }
+  const copy = await prisma.content.create({
+    data: {
+      dealershipId: tenant.dealershipId,
+      authorId: tenant.userId,
+      type: src.type,
+      title: `${src.title} (copy)`,
+      slug,
+      excerpt: src.excerpt,
+      bodyMarkdown: src.bodyMarkdown,
+      bodyHtml: src.bodyHtml,
+      blocks: src.blocks,
+      metaTitle: src.metaTitle,
+      metaDescription: src.metaDescription,
+      keywords: src.keywords,
+      heroImageUrl: src.heroImageUrl,
+      noindex: true,
+      status: "DRAFT",
+      aiGenerated: src.aiGenerated,
+      aiModel: src.aiModel,
+      targetCity: src.targetCity,
+      targetState: src.targetState,
+      targetKeyword: src.targetKeyword,
+    },
+  });
+  await prisma.activity.create({
+    data: { dealershipId: tenant.dealershipId, userId: tenant.userId, action: `Duplicated ${src.title}`, target: copy.id },
+  });
+  revalidatePath("/dashboard/content");
+  return copy;
+}
+
 export async function addComment(contentId: string, body: string) {
   const tenant = await requireTenant();
   await prisma.comment.create({ data: { contentId, userId: tenant.userId, body } });

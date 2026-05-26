@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RedirectsManager } from "./redirects-manager";
 import { Search, Globe2, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { PageHeader } from "@/components/dashboard/page-header";
 
 export const metadata = { title: "SEO" };
 
@@ -23,10 +24,11 @@ export default async function SeoIndex() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2"><Search className="h-5 w-5" /> SEO</h1>
-        <p className="text-sm text-muted-foreground">Sitemap, redirects, schema, and on-page SEO across the workspace.</p>
-      </div>
+      <PageHeader
+        icon={Search}
+        title="SEO"
+        description={`${contents.length} published page${contents.length === 1 ? "" : "s"} · ${redirects.length} redirect${redirects.length === 1 ? "" : "s"} · sitemap, schema, and on-page audits.`}
+      />
 
       <div className="grid md:grid-cols-3 gap-4">
         <Card>

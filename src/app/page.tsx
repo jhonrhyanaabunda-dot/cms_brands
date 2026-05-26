@@ -29,17 +29,16 @@ export default function Marketing() {
     <div className="min-h-screen bg-background text-foreground">
       {/* ─── NAV ─────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 glass">
-        <div className="container flex h-[68px] items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 font-extrabold tracking-tight text-white">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-brand-500 text-charcoal-500 text-xs font-black">A3</span>
-            A3 CMS
+        <div className="container grid h-[68px] grid-cols-3 items-center">
+          <Link href="/" className="inline-flex items-center justify-self-start">
+            <img src="/logo.png" alt="A3 Brands" className="h-10 w-auto" />
           </Link>
-          <nav className="hidden md:flex gap-2 text-[16px] text-white/85">
+          <nav className="hidden md:flex justify-self-center gap-2 text-[16px] text-white/85">
             <Button variant="nav" asChild><a href="#features">WHAT WE DO</a></Button>
             <Button variant="nav" asChild><a href="#stack">STACK</a></Button>
             <Button variant="nav" asChild><a href="#brands">BRANDS</a></Button>
           </nav>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-self-end gap-3">
             <Link href="/login" className="text-sm font-medium text-white/85 hover:text-brand-400">Sign in</Link>
             <Button asChild size="default" className="!h-10"><Link href="/login">BOOK A DEMO <ArrowRight /></Link></Button>
           </div>
@@ -140,9 +139,8 @@ export default function Marketing() {
 
       <footer className="border-t bg-background">
         <div className="container py-8 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
-          <div className="flex items-center gap-2 font-medium">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-brand-500 text-charcoal-500 text-[10px] font-black">A3</span>
-            A3 CMS
+          <div className="flex items-center">
+            <img src="/logo.png" alt="A3 Brands" className="h-6 w-auto" />
           </div>
           <div>© {new Date().getFullYear()} A3 Brands · Built without WordPress.</div>
         </div>
