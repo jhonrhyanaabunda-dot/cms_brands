@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Ship browser source maps in production so React errors point at real
+  // file:line rather than minified shortcuts. Small bundle-size cost, big
+  // diagnostic win for one-off Vercel-only failures.
+  productionBrowserSourceMaps: true,
   experimental: {
     serverActions: { bodySizeLimit: "10mb" },
   },
