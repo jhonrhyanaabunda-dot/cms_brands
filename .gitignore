@@ -19,9 +19,10 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# env
+# env — never commit any .env-family file (template or otherwise).
 .env*.local
 .env
+.env.example
 
 # prisma — keep migrations clean. Demo SQLite (prisma/dev.db) IS committed
 # on purpose: it ships pre-seeded with sample data so Vercel/serverless can
