@@ -5,6 +5,8 @@ import { Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { PROVIDER, MODEL } from "@/lib/openai";
+import { SettingsClient } from "./settings-client";
+import { can } from "@/lib/rbac";
 
 export const metadata = { title: "Settings" };
 
@@ -12,11 +14,12 @@ export default async function SettingsPage() {
   const tenant = await requireTenant();
   const d = await prisma.dealership.findUnique({ where: { id: tenant.dealershipId } });
   if (!d) return null;
+  const canEdit = can(tenant.role, "dealership.manage");
 
   const integrations = [
     { name: "Google Search Console", connected: !!d.gscSiteUrl, value: d.gscSiteUrl ?? "Not connected" },
-    { name: "Google Analytics 4", connected: !!d.ga4PropertyId, value: d.ga4PropertyId ?? "Not connected" },
-    { name: "Google Business Profile", connected: !!d.gbpAccountId, value: d.gbpAccountId ?? "Not connected" },
+    { name: "Google Analytics 4",    connected: !!d.ga4PropertyId, value: d.ga4PropertyId ?? "Not connected" },
+    { name: "Google Business Profile",connected: !!d.gbpAccountId, value: d.gbpAccountId ?? "Not connected" },
     {
       name: "Gemini (Google AI)",
       connected: PROVIDER === "gemini",
@@ -40,22 +43,30 @@ export default async function SettingsPage() {
         description="Manage dealership details and integrations."
       />
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Dealership profile</CardTitle></CardHeader>
-        <CardContent className="grid sm:grid-cols-2 gap-3 text-sm">
-          <Row label="Name" value={d.name} />
-          <Row label="Slug" value={d.slug} />
-          <Row label="Brand" value={d.brand ?? "—"} />
-          <Row label="Domain" value={d.domain ?? "—"} />
-          <Row label="City" value={d.city ?? "—"} />
-          <Row label="State" value={d.state ?? "—"} />
-          <Row label="Phone" value={d.phone ?? "—"} />
-          <Row label="Email" value={d.email ?? "—"} />
-        </CardContent>
-      </Card>
+      <SettingsClient
+        canEdit={canEdit}
+        initial={{
+          name: d.name,
+          legalName: d.legalName,
+          brand: d.brand,
+          domain: d.domain,
+          city: d.city,
+          state: d.state,
+          zip: d.zip,
+          phone: d.phone,
+          email: d.email,
+          primaryColor: d.primaryColor,
+          gscSiteUrl: d.gscSiteUrl,
+          ga4PropertyId: d.ga4PropertyId,
+          gbpAccountId: d.gbpAccountId,
+        }}
+      />
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Integrations</CardTitle><CardDescription>OAuth keys live in env vars; see .env.example.</CardDescription></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base">Integration status</CardTitle>
+          <CardDescription>Snapshot of which external services this workspace is wired to.</CardDescription>
+        </CardHeader>
         <CardContent className="divide-y">
           {integrations.map((i) => (
             <div key={i.name} className="flex items-center justify-between py-3">
@@ -68,15 +79,6 @@ export default async function SettingsPage() {
           ))}
         </CardContent>
       </Card>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between border-b pb-2">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{value}</span>
     </div>
   );
 }

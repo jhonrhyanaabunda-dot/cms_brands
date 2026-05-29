@@ -1,0 +1,29 @@
+// Postgres variant of schema.prisma — keep in sync by hand or use this as
+// the *only* schema once you migrate. To migrate:
+//
+//   1) Set DATABASE_URL=postgresql://user:pass@host:5432/dbname in .env
+//   2) Copy this file over prisma/schema.prisma
+//   3) npx prisma migrate dev --name init
+//   4) Optionally re-run prisma/seed.ts against the new DB
+//
+// The application code is provider-agnostic — every place that stores
+// arrays/objects already uses lib/utils.parseJson/stringifyJson so the
+// switch is one-line for the operator.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// All models are identical to schema.prisma; only the datasource changes.
+// On Postgres you can additionally restore richer types if desired:
+//   - String[] for keywords / aiTags (instead of TEXT-encoded JSON)
+//   - Decimal for money columns (Float here for SQLite compatibility)
+//   - true enums for ContentType / WorkflowStatus
+//
+// Those are optional — sticking with the SQLite-compatible shape lets the
+// same codebase boot against either DB with zero code changes.

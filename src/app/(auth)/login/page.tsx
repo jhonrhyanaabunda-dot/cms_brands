@@ -4,6 +4,7 @@ import { LoginForm } from "./login-form";
 export const metadata = { title: "Sign in" };
 
 export default function LoginPage() {
+  const googleEnabled = !!process.env.AUTH_GOOGLE_ID;
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -11,7 +12,7 @@ export default function LoginPage() {
         <p className="text-sm text-muted-foreground">Sign in to your A3 CMS workspace.</p>
       </div>
       <Suspense fallback={<div className="h-40 rounded-md bg-muted animate-pulse" />}>
-        <LoginForm />
+        <LoginForm googleEnabled={googleEnabled} />
       </Suspense>
       <p className="text-xs text-muted-foreground text-center">
         Demo: <code className="font-mono">admin@a3brands.com</code> · <code className="font-mono">password123</code>

@@ -10,17 +10,11 @@ const baselineFallback: Point[] = Array.from({ length: 30 }, (_, i) => {
   return { day: `D${i + 1}`, organic: Math.round(base), direct: Math.round(base * 0.4) };
 });
 
-/**
- * Adds a small phase-shifted oscillation to the baseline data so the chart
- * "breathes" without losing its shape — each tick we nudge values up/down
- * by ≤ ~3% along a sine curve and bump a key so recharts replays the path
- * animation. Stable enough that tooltips still feel meaningful.
- */
 function shiftSeries(data: Point[], phase: number): Point[] {
   return data.map((p, i) => {
-    const k = (i + phase * 1.7) / 3.1;
-    const oWobble = 1 + Math.sin(k) * 0.03;
-    const dWobble = 1 + Math.cos(k * 1.3) * 0.04;
+    const k = (i + phase) / 3.1;
+    const oWobble = 1 + Math.sin(k) * 0.07;
+    const dWobble = 1 + Math.cos(k * 1.3) * 0.08;
     return {
       day: p.day,
       organic: Math.max(0, Math.round(p.organic * oWobble)),
@@ -29,32 +23,40 @@ function shiftSeries(data: Point[], phase: number): Point[] {
   });
 }
 
+/**
+ * Smooth-motion chart driven by requestAnimationFrame instead of setInterval.
+ * Phase advances ~60×/sec by a tiny delta — the chart moves continuously
+ * instead of "stepping" every Nth ms. Recharts' built-in tween is disabled
+ * because it would fight with this and cause the stutter we'd otherwise see.
+ */
 export function TrafficChart({ data }: { data?: Point[] }) {
   const baseline = useMemo(
     () => (data && data.length > 0 ? data : baselineFallback),
     [data]
   );
   const [phase, setPhase] = useState(0);
-  const [tick, setTick] = useState(0);
-  const mounted = useRef(false);
+  const phaseRef = useRef(0);
 
-  // Replay the mount animation every ~6s so the chart feels alive without
-  // becoming distracting. Each tick also rolls the phase forward so the
-  // underlying values shift gently — a "live" feeling, not a hard refresh.
   useEffect(() => {
-    mounted.current = true;
-    const i = setInterval(() => {
-      setPhase((p) => p + 1);
-      setTick((t) => t + 1);
-    }, 6000);
-    return () => clearInterval(i);
+    let raf = 0;
+    let last = performance.now();
+    const loop = (now: number) => {
+      const dt = (now - last) / 1000;
+      last = now;
+      // Speed: ~1.4 phase units per second. Tunable; higher = faster wave.
+      phaseRef.current += dt * 1.4;
+      setPhase(phaseRef.current);
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   const series = useMemo(() => shiftSeries(baseline, phase), [baseline, phase]);
 
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart key={tick} data={series} margin={{ top: 10, right: 8, bottom: 0, left: -16 }}>
+      <AreaChart data={series} margin={{ top: 10, right: 8, bottom: 0, left: -16 }}>
         <defs>
           <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%"   stopColor="#1DB954" stopOpacity={0.55} />
@@ -76,26 +78,8 @@ export function TrafficChart({ data }: { data?: Point[] }) {
             fontSize: 12,
           }}
         />
-        <Area
-          type="monotone"
-          dataKey="organic"
-          stroke="#1DB954"
-          strokeWidth={2}
-          fill="url(#g1)"
-          isAnimationActive
-          animationDuration={1400}
-          animationEasing="ease-out"
-        />
-        <Area
-          type="monotone"
-          dataKey="direct"
-          stroke="#5EE085"
-          strokeWidth={2}
-          fill="url(#g2)"
-          isAnimationActive
-          animationDuration={1400}
-          animationEasing="ease-out"
-        />
+        <Area type="monotone" dataKey="organic" stroke="#1DB954" strokeWidth={2} fill="url(#g1)" isAnimationActive={false} />
+        <Area type="monotone" dataKey="direct"  stroke="#5EE085" strokeWidth={2} fill="url(#g2)" isAnimationActive={false} />
       </AreaChart>
     </ResponsiveContainer>
   );

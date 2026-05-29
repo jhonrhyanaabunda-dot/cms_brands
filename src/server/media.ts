@@ -63,3 +63,23 @@ export async function deleteMediaAsset(id: string) {
   await prisma.mediaAsset.deleteMany({ where: { id, dealershipId: tenant.dealershipId } });
   revalidatePath("/dashboard/media");
 }
+
+export async function updateMediaAsset(id: string, input: {
+  filename?: string;
+  alt?: string;
+  aiTags?: string[];
+  folderId?: string | null;
+}) {
+  const tenant = await requireTenant();
+  if (!can(tenant.role, "media.upload")) throw new Error("FORBIDDEN");
+  const existing = await prisma.mediaAsset.findFirst({ where: { id, dealershipId: tenant.dealershipId } });
+  if (!existing) throw new Error("NOT_FOUND");
+  const data: any = {};
+  if (input.filename !== undefined) data.filename = input.filename;
+  if (input.alt !== undefined) data.alt = input.alt;
+  if (input.aiTags !== undefined) data.aiTags = JSON.stringify(input.aiTags);
+  if (input.folderId !== undefined) data.folderId = input.folderId;
+  const asset = await prisma.mediaAsset.update({ where: { id }, data });
+  revalidatePath("/dashboard/media");
+  return asset;
+}

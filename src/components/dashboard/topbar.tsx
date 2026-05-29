@@ -1,11 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { signOut, useSession } from "next-auth/react";
 import { Sun, Moon, Search, ChevronsUpDown, LogOut, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { openCommandPalette } from "@/components/dashboard/command-palette";
+import { MobileSidebarTrigger } from "@/components/dashboard/sidebar";
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
@@ -34,6 +36,13 @@ export function Topbar({
   const { data: session } = useSession();
   const router = useRouter();
 
+  // next-themes only knows the real theme on the client (it's read from
+  // localStorage), so SSR always renders the default — which would mismatch
+  // the user's actual theme and tear the hydration tree. Defer any
+  // theme-dependent UI until after mount.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   async function switchTenant(id: string) {
     await fetch("/api/tenant/switch", { method: "POST", body: JSON.stringify({ id }) });
     router.refresh();
@@ -48,16 +57,17 @@ export function Topbar({
 
   return (
     <header className="sticky top-0 z-30 border-b bg-background/85 backdrop-blur-xl">
-      <div className="flex h-[68px] items-center gap-3 px-4 md:px-6">
-        <div className="flex items-center gap-2 min-w-[220px]">
+      <div className="flex h-[68px] items-center gap-2 sm:gap-3 px-3 sm:px-4 md:px-6">
+        <MobileSidebarTrigger />
+        <div className="flex items-center gap-2 min-w-0 md:min-w-[220px]">
           <span
-            className="inline-block h-3.5 w-3.5 rounded-full ring-2 ring-background shadow-sm"
+            className="hidden sm:inline-block h-3.5 w-3.5 rounded-full ring-2 ring-background shadow-sm"
             style={{ backgroundColor: accent ?? "#1DB954" }}
             aria-hidden
           />
           <Select value={currentId} onValueChange={switchTenant}>
-            <SelectTrigger className="h-8 gap-2">
-              <ChevronsUpDown className="h-3.5 w-3.5 opacity-50" />
+            <SelectTrigger className="h-8 gap-2 min-w-0">
+              <ChevronsUpDown className="h-3.5 w-3.5 opacity-50 shrink-0" />
               <SelectValue placeholder="Select dealership" />
             </SelectTrigger>
             <SelectContent>
@@ -91,8 +101,27 @@ export function Topbar({
 
         <div className="flex-1" />
 
-        <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} aria-label="Toggle theme">
-          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        {/* Mobile-only icon button for the command palette; full search box lives below at lg+ */}
+        <Button variant="ghost" size="icon" className="lg:hidden" onClick={openCommandPalette} aria-label="Search">
+          <Search className="h-4 w-4" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          aria-label="Toggle theme"
+          suppressHydrationWarning
+        >
+          {/* Stable Moon-shaped placeholder during SSR; the real icon
+              swap happens after mount so SSR HTML and client HTML match. */}
+          {!mounted ? (
+            <Moon className="h-4 w-4 opacity-0" />
+          ) : theme === "dark" ? (
+            <Sun className="h-4 w-4" />
+          ) : (
+            <Moon className="h-4 w-4" />
+          )}
         </Button>
 
         <DropdownMenu>

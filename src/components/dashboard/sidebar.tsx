@@ -1,11 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   LayoutDashboard, FileText, Sparkles, Image as ImageIcon, Search, Calendar,
   Star, Globe2, Settings, Users, Car, Receipt, Layers, BarChart3, Tag, Workflow,
+  Menu, X, Activity as ActivityIcon, Coins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/lib/types";
@@ -38,6 +40,7 @@ const SECTIONS: { title?: string; items: Item[] }[] = [
     items: [
       { href: "/dashboard/seo", label: "SEO", icon: Search, perm: "seo.manage" },
       { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3, perm: "analytics.read" },
+      { href: "/dashboard/ai/usage", label: "AI usage", icon: Coins, perm: "analytics.read" },
       { href: "/dashboard/reviews", label: "Reviews", icon: Star, perm: "reviews.manage", countKey: "reviews" },
       { href: "/dashboard/gbp", label: "GBP posts", icon: Globe2, perm: "content.read", countKey: "gbp" },
     ],
@@ -54,16 +57,21 @@ const SECTIONS: { title?: string; items: Item[] }[] = [
     title: "Workspace",
     items: [
       { href: "/dashboard/team", label: "Team", icon: Users, perm: "team.manage" },
+      { href: "/dashboard/activity", label: "Activity", icon: ActivityIcon, perm: "content.read" },
       { href: "/dashboard/settings", label: "Settings", icon: Settings, perm: "dealership.manage" },
     ],
   },
 ];
 
-export function Sidebar({ role, counts }: { role: Role; accent?: string; counts?: SidebarCounts }) {
+/**
+ * The actual nav list, shared between desktop and mobile sidebars. `onNav`
+ * fires when the user picks a link — used by mobile to close the drawer.
+ */
+function SidebarContent({ role, counts, onNav }: { role: Role; counts?: SidebarCounts; onNav?: () => void }) {
   const pathname = usePathname();
   return (
-    <aside className="hidden md:flex h-full w-60 shrink-0 flex-col border-r bg-background">
-      <Link href="/dashboard" className="flex items-center h-[68px] border-b px-5">
+    <>
+      <Link href="/dashboard" onClick={onNav} className="flex items-center h-[68px] border-b px-5">
         <img src="/logo.png" alt="A3 Brands" className="h-9 w-auto" />
       </Link>
       <nav className="flex-1 overflow-y-auto py-3 px-2">
@@ -84,6 +92,7 @@ export function Sidebar({ role, counts }: { role: Role; accent?: string; counts?
                     <li key={it.href}>
                       <Link
                         href={it.href}
+                        onClick={onNav}
                         className={cn(
                           "relative flex items-center gap-2.5 rounded-md px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-brand-500/10 hover:text-brand-700 dark:hover:text-brand-300",
                           active && "text-brand-700 dark:text-brand-300 bg-brand-500/10"
@@ -122,6 +131,91 @@ export function Sidebar({ role, counts }: { role: Role; accent?: string; counts?
       <div className="border-t p-3 text-[10px] uppercase tracking-label text-muted-foreground">
         A3 CMS · v0.1 · {role.toLowerCase().replace("_", " ")}
       </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Desktop sidebar (md+) — always-visible
+// ─────────────────────────────────────────────────────────────────────────
+
+export function Sidebar({ role, counts }: { role: Role; accent?: string; counts?: SidebarCounts }) {
+  return (
+    <aside className="hidden md:flex h-full w-60 shrink-0 flex-col border-r bg-background">
+      <SidebarContent role={role} counts={counts} />
     </aside>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Mobile sidebar — drawer triggered from the Topbar hamburger
+// ─────────────────────────────────────────────────────────────────────────
+
+const MOBILE_SIDEBAR_EVENT = "a3:open-mobile-sidebar";
+
+export function openMobileSidebar() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(MOBILE_SIDEBAR_EVENT));
+}
+
+export function MobileSidebar({ role, counts }: { role: Role; counts?: SidebarCounts }) {
+  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Listen for the custom event the Topbar hamburger fires.
+  useEffect(() => {
+    function on() { setOpen(true); }
+    window.addEventListener(MOBILE_SIDEBAR_EVENT, on);
+    return () => window.removeEventListener(MOBILE_SIDEBAR_EVENT, on);
+  }, []);
+
+  // Close on route change so navigating doesn't leave the drawer open.
+  useEffect(() => { setOpen(false); }, [pathname]);
+
+  // Lock body scroll while drawer is open.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.style.overflow = open ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [open]);
+
+  // Escape closes.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") setOpen(false); }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  if (!open) return null;
+  return (
+    <div className="md:hidden fixed inset-0 z-50">
+      <button
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in"
+        onClick={() => setOpen(false)}
+        aria-label="Close menu"
+      />
+      <aside className="relative h-full w-72 max-w-[85vw] flex flex-col border-r bg-background shadow-xl animate-in slide-in-from-left">
+        <button
+          className="absolute right-3 top-3 z-10 p-1.5 rounded-md hover:bg-accent"
+          onClick={() => setOpen(false)}
+          aria-label="Close menu"
+        >
+          <X className="h-4 w-4" />
+        </button>
+        <SidebarContent role={role} counts={counts} onNav={() => setOpen(false)} />
+      </aside>
+    </div>
+  );
+}
+
+export function MobileSidebarTrigger() {
+  return (
+    <button
+      type="button"
+      onClick={openMobileSidebar}
+      className="md:hidden inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-accent text-muted-foreground"
+      aria-label="Open menu"
+    >
+      <Menu className="h-4 w-4" />
+    </button>
   );
 }

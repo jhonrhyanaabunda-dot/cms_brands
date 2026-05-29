@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
@@ -12,32 +12,45 @@ const baseline = [
 ];
 
 /**
- * Animated donut: the recharts pie replays its draw animation on a slow
- * cadence (key bump) while the outer wrapper does a continuous, almost-
- * imperceptible breathing scale so the chart always feels alive.
+ * Animated donut driven by requestAnimationFrame (~60fps). Phase advances
+ * smoothly, slices wobble by ±7%, and the outer wrapper does a slow
+ * breathing scale via framer-motion. Recharts' own tween is disabled so
+ * the two systems don't collide and stutter.
  */
 export function ContentMixChart() {
-  const [tick, setTick] = useState(0);
+  const [phase, setPhase] = useState(0);
+  const phaseRef = useRef(0);
 
   useEffect(() => {
-    const i = setInterval(() => setTick((t) => t + 1), 8000);
-    return () => clearInterval(i);
+    let raf = 0;
+    let last = performance.now();
+    const loop = (now: number) => {
+      const dt = (now - last) / 1000;
+      last = now;
+      phaseRef.current += dt * 1.6;
+      setPhase(phaseRef.current);
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
   }, []);
 
-  // Gentle ±2% wobble on the values so the slices subtly re-tween each tick.
-  const data = baseline.map((d, i) => {
-    const wobble = 1 + Math.sin((tick + i) * 0.9) * 0.02;
-    return { ...d, value: Math.max(1, Math.round(d.value * wobble)) };
-  });
+  const data = useMemo(
+    () => baseline.map((d, i) => {
+      const wobble = 1 + Math.sin(phase + i * 1.4) * 0.07;
+      return { ...d, value: Math.max(1, d.value * wobble) };
+    }),
+    [phase]
+  );
 
   return (
     <motion.div
       className="h-full w-full"
-      animate={{ scale: [1, 1.015, 1] }}
-      transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+      animate={{ scale: [1, 1.025, 1] }}
+      transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
     >
       <ResponsiveContainer width="100%" height="100%">
-        <PieChart key={tick}>
+        <PieChart>
           <Tooltip
             contentStyle={{
               backgroundColor: "hsl(var(--popover))",
@@ -54,9 +67,7 @@ export function ContentMixChart() {
             outerRadius={90}
             stroke="hsl(var(--background))"
             strokeWidth={2}
-            isAnimationActive
-            animationDuration={1400}
-            animationEasing="ease-out"
+            isAnimationActive={false}
             paddingAngle={2}
           >
             {data.map((d) => (

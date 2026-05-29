@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getTenant } from "@/lib/tenant";
 import { prisma } from "@/lib/db";
-import { Sidebar, type SidebarCounts } from "@/components/dashboard/sidebar";
+import { Sidebar, MobileSidebar, type SidebarCounts } from "@/components/dashboard/sidebar";
 import { Topbar } from "@/components/dashboard/topbar";
 import { CommandPaletteRoot } from "@/components/dashboard/command-palette";
 import { tenantAccent } from "@/lib/branding";
@@ -51,6 +51,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       style={{ ["--tenant-color" as any]: accent }}
     >
       <Sidebar role={tenant.role} accent={accent} counts={counts} />
+      <MobileSidebar role={tenant.role} counts={counts} />
       <div className="flex-1 flex flex-col min-w-0">
         <div className="h-[3px] w-full" style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }} />
         <Topbar
@@ -60,7 +61,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           accent={accent}
         />
         <main className="flex-1 overflow-y-auto">
-          <div className="container py-6 max-w-screen-2xl">{children}</div>
+          <div className="container py-4 md:py-6 px-3 sm:px-4 md:px-6 max-w-screen-2xl">{children}</div>
         </main>
       </div>
       <CommandPaletteRoot />

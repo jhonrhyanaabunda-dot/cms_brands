@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { captureError } from "@/lib/observability";
 
 export default function DashboardError({
   error,
@@ -11,10 +12,10 @@ export default function DashboardError({
   // Surface the real error in the browser console so Vercel-only failures
   // are debuggable without local repro. Minified production stacks are
   // limited; with productionBrowserSourceMaps enabled they map back to
-  // real file:line.
+  // real file:line. Goes through observability so a future Sentry hookup
+  // captures it without touching this file.
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.error("[DashboardError]", error);
+    captureError(error, { source: "dashboard-error-boundary", digest: error.digest });
   }, [error]);
 
   return (
