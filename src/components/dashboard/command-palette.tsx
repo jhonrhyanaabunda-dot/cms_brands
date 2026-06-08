@@ -6,7 +6,7 @@ import { Command } from "cmdk";
 import {
   LayoutDashboard, FileText, Sparkles, Layers, Calendar, Image as ImageIcon,
   Search as SearchIcon, BarChart3, Star, Globe2, Car, Tag, Receipt, Users, Settings,
-  Plus, Workflow, Activity as ActivityIcon, Coins,
+  Plus, Workflow, Activity as ActivityIcon, Coins, Inbox,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,7 @@ const NAV: Omit<Item, "group">[] = [
   { id: "ai-usage", label: "AI usage", icon: Coins, href: "/dashboard/ai/usage" },
   { id: "activity", label: "Activity log", icon: ActivityIcon, href: "/dashboard/activity" },
   { id: "reviews", label: "Reviews", icon: Star, href: "/dashboard/reviews" },
+  { id: "leads", label: "Leads", icon: Inbox, href: "/dashboard/leads" },
   { id: "gbp", label: "GBP posts", icon: Globe2, href: "/dashboard/gbp" },
   { id: "inventory", label: "Inventory", icon: Car, href: "/dashboard/inventory" },
   { id: "offers", label: "Lease offers", icon: Tag, href: "/dashboard/offers" },

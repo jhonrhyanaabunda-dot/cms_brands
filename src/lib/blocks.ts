@@ -14,7 +14,10 @@ export type BlockType =
   | "testimonials"
   | "stats"
   | "imageGrid"
-  | "embed";
+  | "embed"
+  | "leadContact"
+  | "leadTestDrive"
+  | "leadFinance";
 
 export type Block =
   | { id: string; type: "hero"; props: { eyebrow?: string; headline: string; subheadline?: string; ctaLabel?: string; ctaHref?: string; imageUrl?: string; align?: "left" | "center" } }
@@ -28,7 +31,10 @@ export type Block =
   | { id: string; type: "testimonials"; props: { headline: string; items: { quote: string; author: string; rating?: number }[] } }
   | { id: string; type: "stats"; props: { items: { label: string; value: string }[] } }
   | { id: string; type: "imageGrid"; props: { images: { url: string; alt?: string }[] } }
-  | { id: string; type: "embed"; props: { html: string } };
+  | { id: string; type: "embed"; props: { html: string } }
+  | { id: string; type: "leadContact";   props: { headline: string; subheadline?: string; ctaLabel?: string } }
+  | { id: string; type: "leadTestDrive"; props: { headline: string; subheadline?: string; ctaLabel?: string } }
+  | { id: string; type: "leadFinance";   props: { headline: string; subheadline?: string; ctaLabel?: string } };
 
 export type BlockCategory = "Hero" | "Conversion" | "Automotive" | "Content" | "Social proof" | "Media";
 
@@ -71,6 +77,12 @@ export const BLOCK_LIBRARY: { type: BlockType; label: string; description: strin
     defaults: () => ({ id: nanoid(8), type: "imageGrid", props: { images: [] } }) },
   { type: "embed", label: "Embed", description: "Custom HTML / iframe", emoji: "🔗", category: "Media", keywords: "iframe video script",
     defaults: () => ({ id: nanoid(8), type: "embed", props: { html: "<!-- paste an embed code here -->" } }) },
+  { type: "leadContact",   label: "Contact form",       description: "General contact lead capture", emoji: "✉️", category: "Conversion", keywords: "lead contact form email",
+    defaults: () => ({ id: nanoid(8), type: "leadContact",   props: { headline: "Get in touch", subheadline: "Questions, comments, or just want to chat? Drop us a note.", ctaLabel: "Send message" } }) },
+  { type: "leadTestDrive", label: "Test-drive request", description: "Test-drive lead capture",     emoji: "🛞", category: "Conversion", keywords: "lead test drive vehicle interest",
+    defaults: () => ({ id: nanoid(8), type: "leadTestDrive", props: { headline: "Schedule a test drive", subheadline: "Pick the vehicle you want behind the wheel — we'll confirm by text within an hour.", ctaLabel: "Request test drive" } }) },
+  { type: "leadFinance",   label: "Finance pre-qual",   description: "Finance pre-qualification",   emoji: "💳", category: "Conversion", keywords: "lead financing credit pre-qualify",
+    defaults: () => ({ id: nanoid(8), type: "leadFinance",   props: { headline: "Pre-qualify online in 60 seconds", subheadline: "Soft credit pull — no impact on your score. All credit considered.", ctaLabel: "Start pre-qual" } }) },
 ];
 
 export function duplicateBlock(b: Block): Block {

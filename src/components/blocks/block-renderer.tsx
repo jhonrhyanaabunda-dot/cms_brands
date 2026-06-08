@@ -3,6 +3,7 @@ import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Star } from "lucide-react";
+import { LeadForm } from "@/components/site/lead-form";
 
 export type BlockCtx = {
   dealershipId?: string;
@@ -43,6 +44,9 @@ export function BlockRenderer({ block, ctx }: { block: Block; ctx?: BlockCtx }) 
     case "stats":         return <StatsBlock p={block.props} />;
     case "imageGrid":     return <ImageGridBlock p={block.props} />;
     case "embed":         return <EmbedBlock p={block.props} />;
+    case "leadContact":   return <LeadBlock kind="contact"   p={block.props} ctx={ctx} />;
+    case "leadTestDrive": return <LeadBlock kind="testdrive" p={block.props} ctx={ctx} />;
+    case "leadFinance":   return <LeadBlock kind="finance"   p={block.props} ctx={ctx} />;
     default:              return null;
   }
 }
@@ -415,6 +419,52 @@ function ImageGridBlock({ p }: { p: any }) {
 
 function EmbedBlock({ p }: { p: any }) {
   return <section className="px-4 py-6 max-w-6xl mx-auto" dangerouslySetInnerHTML={{ __html: p.html }} />;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Lead capture (contact / test-drive / finance)
+//
+// Server-rendered shell + client form. Without a dealership ctx (i.e. in
+// the page builder canvas) we render a disabled preview so authors see
+// what visitors will get without being able to submit a fake lead.
+// ─────────────────────────────────────────────────────────────────────────
+
+function LeadBlock({
+  kind, p, ctx,
+}: {
+  kind: "contact" | "testdrive" | "finance";
+  p: any;
+  ctx?: BlockCtx;
+}) {
+  const showVehicle = kind === "testdrive" || kind === "finance";
+  return (
+    <section className="px-4 py-16">
+      <div className="max-w-4xl mx-auto grid lg:grid-cols-[1fr_1.2fr] gap-8 items-center">
+        <div className="space-y-3">
+          <h2 className="text-3xl md:text-4xl font-black tracking-tight">{p.headline}</h2>
+          {p.subheadline && <p className="text-muted-foreground leading-relaxed">{p.subheadline}</p>}
+          <ul className="text-sm text-muted-foreground space-y-1.5 pt-2">
+            <li>· One-business-day response, often within an hour</li>
+            <li>· Your info stays with us — we never sell it</li>
+            <li>· No spam, ever</li>
+          </ul>
+        </div>
+        {ctx?.dealershipId ? (
+          <LeadForm
+            dealershipId={ctx.dealershipId}
+            kind={kind}
+            ctaLabel={p.ctaLabel ?? "Submit"}
+            showVehicle={showVehicle}
+          />
+        ) : (
+          <div className="rounded-2xl border bg-card p-6 space-y-2 opacity-70">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Form preview</div>
+            <div className="text-sm">This form appears live on the published site. Visitors submit name, email{showVehicle ? ", vehicle interest" : ""}, and an optional message.</div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────

@@ -116,6 +116,7 @@ model Dealership {
   themes          Theme[]
   pages           PageNode[]
   workflows       Workflow[]
+  leads           Lead[]
 }
 
 model Membership {
@@ -513,4 +514,34 @@ model WorkflowRun {
   workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
 
   @@index([workflowId, startedAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Lead capture — submissions from the public dealership microsite
+// (contact form, test-drive request, finance pre-qual).
+// ─────────────────────────────────────────────────────────────
+
+model Lead {
+  id              String   @id @default(cuid())
+  dealershipId    String
+  // "contact" | "testdrive" | "finance"
+  kind            String
+  name            String
+  email           String
+  phone           String?
+  // "new" | "contacted" | "qualified" | "converted" | "archived"
+  status          String   @default("new")
+  // Per-kind extras (test-drive vehicle, preferred date, financing income, etc.)
+  vehicleInterest String?
+  message         String?
+  // Where the submission came from — path on the microsite at minimum.
+  source          String?
+  // Free-form notes the team adds in the inbox.
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  dealership      Dealership @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+
+  @@index([dealershipId, status, createdAt])
 }

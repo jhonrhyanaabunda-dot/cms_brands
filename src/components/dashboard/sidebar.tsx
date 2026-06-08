@@ -7,14 +7,14 @@ import { motion } from "framer-motion";
 import {
   LayoutDashboard, FileText, Sparkles, Image as ImageIcon, Search, Calendar,
   Star, Globe2, Settings, Users, Car, Receipt, Layers, BarChart3, Tag, Workflow,
-  Menu, X, Activity as ActivityIcon, Coins,
+  Menu, X, Activity as ActivityIcon, Coins, Inbox,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/lib/types";
 import { can } from "@/lib/rbac";
 
 export type SidebarCounts = Partial<Record<
-  "content" | "scheduler" | "reviews" | "gbp" | "inventory" | "offers" | "media" | "workflows",
+  "content" | "scheduler" | "reviews" | "gbp" | "inventory" | "offers" | "media" | "workflows" | "leads",
   number
 >>;
 
@@ -42,6 +42,7 @@ const SECTIONS: { title?: string; items: Item[] }[] = [
       { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3, perm: "analytics.read" },
       { href: "/dashboard/ai/usage", label: "AI usage", icon: Coins, perm: "analytics.read" },
       { href: "/dashboard/reviews", label: "Reviews", icon: Star, perm: "reviews.manage", countKey: "reviews" },
+      { href: "/dashboard/leads", label: "Leads", icon: Inbox, perm: "reviews.manage", countKey: "leads" },
       { href: "/dashboard/gbp", label: "GBP posts", icon: Globe2, perm: "content.read", countKey: "gbp" },
     ],
   },

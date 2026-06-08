@@ -3,12 +3,13 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Search, X, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Search, X, Pencil, Trash2, Loader2, Download } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -18,7 +19,10 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import type { Role } from "@/lib/types";
 import { can } from "@/lib/rbac";
-import { createInventoryItem, updateInventoryItem, deleteInventoryItem } from "@/server/inventory";
+import {
+  createInventoryItem, updateInventoryItem, deleteInventoryItem,
+  previewInventoryFeed, importInventoryFeed,
+} from "@/server/inventory";
 
 export type Vehicle = {
   id: string;
@@ -44,6 +48,7 @@ export function InventoryClient({ initial, role }: { initial: Vehicle[]; role: R
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [editing, setEditing] = useState<Vehicle | null>(null);
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [pending, start] = useTransition();
 
   const filtered = useMemo(() => {
@@ -85,6 +90,11 @@ export function InventoryClient({ initial, role }: { initial: Vehicle[]; role: R
           <option value="">All status</option>
           {STATUS_OPTIONS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
+        {can(role, "content.update") && (
+          <Button variant="outline" onClick={() => setImporting(true)}>
+            <Download className="h-4 w-4" /> Import feed
+          </Button>
+        )}
         {can(role, "content.create") && (
           <Button variant="gradient" onClick={() => setCreating(true)}>
             <Plus className="h-4 w-4" /> Add vehicle
@@ -150,6 +160,129 @@ export function InventoryClient({ initial, role }: { initial: Vehicle[]; role: R
           onSaved={() => { setCreating(false); setEditing(null); router.refresh(); }}
         />
       )}
+
+      {importing && (
+        <ImportFeedDialog
+          onClose={() => setImporting(false)}
+          onImported={() => { setImporting(false); router.refresh(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ImportFeedDialog({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
+  const [mode, setMode] = useState<"url" | "paste">("url");
+  const [url, setUrl] = useState("");
+  const [raw, setRaw] = useState("");
+  const [preview, setPreview] = useState<any | null>(null);
+  const [pending, start] = useTransition();
+
+  function input() {
+    return mode === "url" ? { url } : { raw };
+  }
+
+  function onPreview() {
+    start(async () => {
+      const t = toast.loading("Fetching feed…");
+      try {
+        const p = await previewInventoryFeed(input());
+        setPreview(p);
+        toast.success(`Parsed ${p.parsable} vehicles`, { id: t });
+      } catch (e: any) { toast.error(e?.message ?? "Failed", { id: t }); setPreview(null); }
+    });
+  }
+  function onImport() {
+    start(async () => {
+      const t = toast.loading("Importing…");
+      try {
+        const r = await importInventoryFeed(input());
+        toast.success(`Imported · ${r.added} added · ${r.updated} updated${r.errored ? ` · ${r.errored} errored` : ""}`, { id: t });
+        onImported();
+      } catch (e: any) { toast.error(e?.message ?? "Failed", { id: t }); }
+    });
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Import inventory feed</DialogTitle>
+          <DialogDescription>Paste a JSON feed URL or the feed body itself. Upserts by VIN — existing vehicles get refreshed, new ones get added.</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => { setMode("url"); setPreview(null); }}
+              className={`flex-1 h-9 rounded-md border text-xs font-medium transition-colors ${mode === "url" ? "border-brand-500 bg-brand-500/10 text-brand-700 dark:text-brand-300" : "hover:border-brand-500/40"}`}
+            >URL</button>
+            <button
+              type="button"
+              onClick={() => { setMode("paste"); setPreview(null); }}
+              className={`flex-1 h-9 rounded-md border text-xs font-medium transition-colors ${mode === "paste" ? "border-brand-500 bg-brand-500/10 text-brand-700 dark:text-brand-300" : "hover:border-brand-500/40"}`}
+            >Paste JSON</button>
+          </div>
+
+          {mode === "url" ? (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Feed URL</Label>
+              <Input value={url} onChange={(e) => { setUrl(e.target.value); setPreview(null); }} placeholder="https://example.com/feed.json" />
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Paste JSON (either an array of vehicles, or {`{ "vehicles": [...] }`})</Label>
+              <Textarea rows={8} value={raw} onChange={(e) => { setRaw(e.target.value); setPreview(null); }} className="font-mono text-xs" />
+            </div>
+          )}
+
+          {preview && (
+            <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                <Stat label="Parsed"    value={preview.parsable} />
+                <Stat label="Skipped"   value={preview.skipped} />
+                <Stat label="To add"    value={preview.toAdd} tone="success" />
+                <Stat label="To update" value={preview.toUpdate} tone="info" />
+              </div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold pt-2">Sample (first 5)</div>
+              <ul className="text-xs divide-y border-t">
+                {preview.sample.map((s: any, i: number) => (
+                  <li key={i} className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="truncate">{s.year} {s.make} {s.model} {s.trim ?? ""}</span>
+                    <span className="font-mono text-muted-foreground">{s.vin}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          {!preview ? (
+            <Button variant="gradient" onClick={onPreview} disabled={pending || (mode === "url" ? !url : !raw)}>
+              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              Preview
+            </Button>
+          ) : (
+            <Button variant="gradient" onClick={onImport} disabled={pending}>
+              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              Import {preview.parsable} vehicles
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Stat({ label, value, tone }: { label: string; value: number; tone?: "success" | "info" }) {
+  const color = tone === "success" ? "text-brand-600" : tone === "info" ? "text-blue-500" : "text-foreground";
+  return (
+    <div className="rounded border bg-background p-2">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className={`text-lg font-semibold tabular-nums ${color}`}>{value}</div>
     </div>
   );
 }

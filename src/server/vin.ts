@@ -147,3 +147,90 @@ The bodyMarkdown should include: hero intro, key specs table, why-this-vehicle s
   });
   return { decoded, contentId: c.id };
 }
+
+/**
+ * One-click: decode VIN → upsert InventoryItem → generate MODEL_RESEARCH
+ * content page. Returns both IDs so the UI can jump to either.
+ */
+export async function vinDecodeCreateBoth(input: { vin: string; price?: number; mileage?: number }) {
+  const tenant = await requireTenant();
+  if (!can(tenant.role, "content.create")) throw new Error("FORBIDDEN");
+  const dealer = await prisma.dealership.findUnique({ where: { id: tenant.dealershipId } });
+  const decoded = await decodeVin(input.vin);
+
+  // Upsert inventory by (dealershipId, vin). The unique index already exists.
+  const inventory = await prisma.inventoryItem.upsert({
+    where: { dealershipId_vin: { dealershipId: tenant.dealershipId, vin: decoded.vin } },
+    create: {
+      dealershipId: tenant.dealershipId,
+      vin: decoded.vin,
+      year: decoded.year ?? new Date().getFullYear(),
+      make: decoded.make || "Unknown",
+      model: decoded.model || "Vehicle",
+      trim: decoded.trim || null,
+      bodyStyle: decoded.bodyStyle || null,
+      fuelType: decoded.fuelType || null,
+      transmission: decoded.transmission || null,
+      drivetrain: decoded.drivetrain || null,
+      price: input.price,
+      mileage: input.mileage ?? 0,
+      status: "AVAILABLE",
+    },
+    update: {
+      year: decoded.year ?? undefined,
+      make: decoded.make || undefined,
+      model: decoded.model || undefined,
+      trim: decoded.trim || undefined,
+      bodyStyle: decoded.bodyStyle || undefined,
+      fuelType: decoded.fuelType || undefined,
+      transmission: decoded.transmission || undefined,
+      drivetrain: decoded.drivetrain || undefined,
+      ...(input.price != null  ? { price: input.price }  : {}),
+      ...(input.mileage != null ? { mileage: input.mileage } : {}),
+    },
+  });
+
+  // Generate the MODEL_RESEARCH content page (same AI flow as generateVinPage).
+  const userPrompt = `
+Write a vehicle research / landing page for this specific vehicle at ${dealer?.name}.
+
+Vehicle data (NHTSA-decoded):
+${JSON.stringify(decoded, null, 2)}
+
+Return strict JSON: { title, slug, metaTitle, metaDescription, excerpt, bodyMarkdown }.
+The bodyMarkdown should include: hero intro, key specs table, why-this-vehicle section, financing prompt, schedule-test-drive CTA. No fabricated trim packages or prices.
+`.trim();
+
+  const { text } = await chat({
+    system: "You write factual, OEM-compliant vehicle landing pages for car dealerships.",
+    user: userPrompt,
+    json: true,
+  });
+  const parsed = JSON.parse(text);
+
+  const content = await createContent({
+    type: "MODEL_RESEARCH",
+    title: parsed.title || `${decoded.year} ${decoded.make} ${decoded.model}`,
+    slug: parsed.slug,
+    excerpt: parsed.excerpt,
+    bodyMarkdown: parsed.bodyMarkdown,
+    metaTitle: parsed.metaTitle,
+    metaDescription: parsed.metaDescription,
+    aiGenerated: true,
+    aiModel: MODEL,
+  });
+
+  await prisma.activity.create({
+    data: {
+      dealershipId: tenant.dealershipId, userId: tenant.userId,
+      action: `VIN ${decoded.vin} → InventoryItem + MODEL_RESEARCH page`,
+      target: inventory.id,
+    },
+  });
+
+  return {
+    decoded,
+    inventoryId: inventory.id,
+    contentId: content.id,
+  };
+}

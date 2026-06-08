@@ -24,7 +24,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Sidebar status-count badges. Best-effort; counts that fail individually
   // collapse to undefined and just hide the badge.
   const dId = tenant.dealershipId;
-  const [contentTotal, scheduledTotal, reviewsPending, gbpTotal, inventoryTotal, offersTotal, mediaTotal, workflowsEnabled] = await Promise.all([
+  const [contentTotal, scheduledTotal, reviewsPending, gbpTotal, inventoryTotal, offersTotal, mediaTotal, workflowsEnabled, leadsNew] = await Promise.all([
     prisma.content.count({ where: { dealershipId: dId, status: { in: ["DRAFT", "IN_REVIEW", "NEEDS_REVISION", "APPROVED"] } } }).catch(() => undefined),
     prisma.content.count({ where: { dealershipId: dId, scheduledAt: { not: null }, status: { in: ["SCHEDULED", "APPROVED"] } } }).catch(() => undefined),
     prisma.review.count({ where: { dealershipId: dId, isEscalated: true, replies: { none: { status: "POSTED" } } } }).catch(() => undefined),
@@ -33,6 +33,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     prisma.offer.count({ where: { dealershipId: dId } }).catch(() => undefined),
     prisma.mediaAsset.count({ where: { dealershipId: dId } }).catch(() => undefined),
     prisma.workflow.count({ where: { dealershipId: dId, enabled: true } }).catch(() => undefined),
+    prisma.lead.count({ where: { dealershipId: dId, status: "new" } }).catch(() => undefined),
   ]);
   const counts: SidebarCounts = {
     content: contentTotal,
@@ -43,6 +44,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     offers: offersTotal,
     media: mediaTotal,
     workflows: workflowsEnabled,
+    leads: leadsNew,
   };
 
   return (
