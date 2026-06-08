@@ -24,11 +24,16 @@ export function ContentMixChart() {
   useEffect(() => {
     let raf = 0;
     let last = performance.now();
+    let lastTick = 0;
+    const FRAME_MS = 1000 / 30;
     const loop = (now: number) => {
       const dt = (now - last) / 1000;
       last = now;
       phaseRef.current += dt * 1.6;
-      setPhase(phaseRef.current);
+      if (!document.hidden && now - lastTick >= FRAME_MS) {
+        setPhase(phaseRef.current);
+        lastTick = now;
+      }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);

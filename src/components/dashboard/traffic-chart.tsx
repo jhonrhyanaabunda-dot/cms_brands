@@ -40,12 +40,19 @@ export function TrafficChart({ data }: { data?: Point[] }) {
   useEffect(() => {
     let raf = 0;
     let last = performance.now();
+    let lastTick = 0;
+    // Throttle to ~30fps + pause when the tab is hidden. Halves CPU and
+    // frees the main thread for click handlers — without this, the
+    // continuous setState makes navigation feel laggy.
+    const FRAME_MS = 1000 / 30;
     const loop = (now: number) => {
       const dt = (now - last) / 1000;
       last = now;
-      // Speed: ~1.4 phase units per second. Tunable; higher = faster wave.
       phaseRef.current += dt * 1.4;
-      setPhase(phaseRef.current);
+      if (!document.hidden && now - lastTick >= FRAME_MS) {
+        setPhase(phaseRef.current);
+        lastTick = now;
+      }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);

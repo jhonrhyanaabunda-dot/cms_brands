@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { Sidebar, MobileSidebar, type SidebarCounts } from "@/components/dashboard/sidebar";
 import { Topbar } from "@/components/dashboard/topbar";
 import { CommandPaletteRoot } from "@/components/dashboard/command-palette";
+import { OnboardingWizard } from "@/components/dashboard/onboarding-wizard";
+import { can } from "@/lib/rbac";
 import { tenantAccent } from "@/lib/branding";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -67,6 +69,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </main>
       </div>
       <CommandPaletteRoot />
+      {current && !current.onboardedAt && can(tenant.role, "dealership.manage") && (
+        <OnboardingWizard
+          initial={{
+            name: current.name,
+            brand: current.brand,
+            primaryColor: current.primaryColor,
+            logoUrl: current.logoUrl,
+            gscSiteUrl: current.gscSiteUrl,
+            ga4PropertyId: current.ga4PropertyId,
+            gbpAccountId: current.gbpAccountId,
+          }}
+        />
+      )}
     </div>
   );
 }

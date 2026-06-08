@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireTenant } from "@/lib/tenant";
 import { can } from "@/lib/rbac";
+import { sendEmail, leadNotificationHtml } from "@/lib/email";
 
 const LeadKindEnum   = z.enum(["contact", "testdrive", "finance"]);
 const LeadStatusEnum = z.enum(["new", "contacted", "qualified", "converted", "archived"]);
@@ -52,6 +53,27 @@ export async function submitLead(input: z.infer<typeof CreateLeadInput>) {
       target: lead.id,
     },
   });
+
+  // Notify the dealership by email if they have one configured.
+  // Errors are caught — the lead is already saved, the inbox shows it,
+  // and a failed email shouldn't reflect back to the form submitter.
+  if (dealer.email) {
+    try {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:2000";
+      const { subject, html } = leadNotificationHtml({
+        dealerName: dealer.name,
+        appUrl,
+        lead: {
+          id: lead.id, kind: lead.kind, name: lead.name, email: lead.email,
+          phone: lead.phone, vehicleInterest: lead.vehicleInterest,
+          message: lead.message, source: lead.source,
+        },
+      });
+      await sendEmail({ to: dealer.email, subject, html, replyTo: lead.email });
+    } catch (e) {
+      console.error("[leads] notification email failed:", e);
+    }
+  }
 
   // Refresh the dashboard's lead inbox + sidebar count.
   revalidatePath("/dashboard/leads");

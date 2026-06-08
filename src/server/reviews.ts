@@ -6,6 +6,7 @@ import { requireTenant } from "@/lib/tenant";
 import { can } from "@/lib/rbac";
 import { generateReviewReply } from "@/server/ai";
 import { fireWorkflowEvent } from "@/server/workflows";
+import { sendEmail, reviewEscalationHtml } from "@/lib/email";
 
 export async function syncReviews() {
   const tenant = await requireTenant();
@@ -19,7 +20,7 @@ export async function syncReviews() {
     { authorName: "Amy K.", rating: 5, body: "Loved the new car experience — highly recommend.", sentiment: "POSITIVE" as const },
   ];
   let created = 0;
-  const createdIds: { id: string; rating: number }[] = [];
+  const createdIds: { id: string; rating: number; authorName: string; body: string }[] = [];
   for (let i = 0; i < samples.length; i++) {
     const s = samples[i];
     const externalId = `mock-${i}-${Date.now()}`;
@@ -36,7 +37,7 @@ export async function syncReviews() {
       },
     });
     created++;
-    createdIds.push({ id: review.id, rating: review.rating });
+    createdIds.push({ id: review.id, rating: review.rating, authorName: review.authorName, body: review.body });
   }
   await prisma.activity.create({
     data: { dealershipId: tenant.dealershipId, userId: tenant.userId, action: `Synced ${created} reviews from GBP (mock)` },
@@ -53,6 +54,26 @@ export async function syncReviews() {
       });
     } catch (e) {
       console.error("[workflow] review.synced fire failed:", e);
+    }
+  }
+  // Email the dealership about each escalated review (rating ≤ 2).
+  // Same fail-soft pattern as workflow events — sync should not roll back.
+  if (dealer?.email) {
+    const lowStars = createdIds.filter((r) => r.rating <= 2);
+    if (lowStars.length > 0) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:2000";
+      for (const r of lowStars) {
+        try {
+          const { subject, html } = reviewEscalationHtml({
+            dealerName: dealer.name,
+            appUrl,
+            review: { id: r.id, authorName: r.authorName, rating: r.rating, body: r.body },
+          });
+          await sendEmail({ to: dealer.email, subject, html });
+        } catch (e) {
+          console.error("[reviews] escalation email failed:", e);
+        }
+      }
     }
   }
   revalidatePath("/dashboard/reviews");

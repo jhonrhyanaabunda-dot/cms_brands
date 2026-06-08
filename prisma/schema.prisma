@@ -101,6 +101,8 @@ model Dealership {
   gscSiteUrl  String?
   ga4PropertyId String?
   gbpAccountId String?
+  // First-run wizard completion. null = wizard still shows.
+  onboardedAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
